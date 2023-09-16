@@ -37,5 +37,5 @@ export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${
 * pip3 install lark
 * pip3 install catkin_pkg
 * In folder, /dev/carla-ros-bridge/src/ros-bridge, run: <code>pip3 install -r requirements.txt </code>
-* * ./install_dependencies.sh
+* * <code> ./install_dependencies.sh </code>
 
