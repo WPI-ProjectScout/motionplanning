@@ -23,5 +23,6 @@ export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${
 </code>
 
   
-
+## Setup the ROS Bridge
+https://carla.readthedocs.io/projects/ros-bridge/en/latest/ros_installation_ros2/
 
