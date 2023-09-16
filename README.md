@@ -23,7 +23,9 @@ to
 <code>
 export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${LEADERBOARD_ROOT}":"${CARLA_ROOT}/PythonAPI/carla/dist/carla-0.9.14-py3.7-linux-x86_64.egg":${PYTHONPATH}
 </code>
-
+* Run carla
+** ./CarlaUE4.sh -quality-level=Epic -world-port=2000 -resx=800 -resy=600 -prefernvidia
+ 
   
 ## Setup the ROS Bridge
 * First, run command to install rosdep:
