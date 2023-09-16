@@ -25,5 +25,7 @@ export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${
 
   
 ## Setup the ROS Bridge
-https://carla.readthedocs.io/projects/ros-bridge/en/latest/ros_installation_ros2/
+* First, run command to install rosdep:
+* <code>sudo apt install python3-rosdep2</code>
+* https://carla.readthedocs.io/projects/ros-bridge/en/latest/ros_installation_ros2/
 
