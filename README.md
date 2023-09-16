@@ -5,8 +5,9 @@
 https://docs.ros.org/en/foxy/Installation.html
 ## Install Google Chrome
 
-## Install Carla from leaderboard
-* Follow all steps including the scenario runner and leaderboard
+## Install Carla from leaderboard (section 1)
+* [https://leaderboard.carla.org/get_started/#12-get-the-leaderboard-and-scenario-runner](https://leaderboard.carla.org/get_started/#1-system-setup)]
+* Follow all steps including the scenario runner and leaderboard in section 1
 
 
 ### Check your install
