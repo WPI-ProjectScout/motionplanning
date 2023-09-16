@@ -11,7 +11,8 @@ https://docs.ros.org/en/foxy/Installation.html
 
 
 ### Check your install
-python3 -c 'import carla;print("Success")' # python3
+* Test carla install:
+** python3 -c 'import carla;print("Success")' # python3
 * Make sure to run
   * <code> conda activate py37 </code>
 May need to fix the line in .bashrc:
