@@ -33,4 +33,9 @@ export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${
 * mkdir carla-ros-bridge
 * git clone --recurse-submodules -b leaderboard-2.0 --single-branch https://github.com/carla-simulator/ros-bridge src/ros-bridge
 * https://carla.readthedocs.io/projects/ros-bridge/en/latest/ros_installation_ros2/
+* pip3 install empy
+* pip3 install lark
+* pip3 install catkin_pkg
+* In folder, /dev/carla-ros-bridge/src/ros-bridge, run: <code>pip3 install -r requirements.txt </code>
+* * ./install_dependencies.sh
 
