@@ -14,12 +14,16 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='bs',
-    maintainer_email='bs@todo.todo',
-    description='TODO: Package description',
+    maintainer_email='jpatel@nuhabit.ai',
+    description='Local Planner',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'talker = motionplanning.publisher_member_function:main',
+            'listener = motionplanning.subscriber_member_function:main',
+            'setup_env = motionplanning.setup_env:main',
         ],
     },
+    # package_dir={'': 'src'},
 )
