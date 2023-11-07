@@ -1,0 +1,22 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/bs/dev/rbe550_ws/install/motionplanning/lib/python3.8/site-packages",
+        "/home/bs/dev/rbe550_ws/install/carla_msgs/lib/python3.7/site-packages",
+        "/home/bs/dev/rbe550_ws/install/carla_common/lib/python3.8/site-packages",
+        "/home/bs/dev/carla/PythonAPI/carla/",
+        "/home/bs/dev/scenario_runner",
+        "/home/bs/dev/leaderboard",
+        "/home/bs/dev/carla/PythonAPI/carla/dist/carla-0.9.14-py3.7-linux-x86_64.egg",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/bs/dev/rbe550_ws/install/motionplanning/lib/python3.8/site-packages",
+        "/home/bs/dev/rbe550_ws/install/carla_msgs/lib/python3.7/site-packages",
+        "/home/bs/dev/rbe550_ws/install/carla_common/lib/python3.8/site-packages",
+        "/home/bs/dev/carla/PythonAPI/carla/",
+        "/home/bs/dev/scenario_runner",
+        "/home/bs/dev/leaderboard",
+        "/home/bs/dev/carla/PythonAPI/carla/dist/carla-0.9.14-py3.7-linux-x86_64.egg",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ]
+}

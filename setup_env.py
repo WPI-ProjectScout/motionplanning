@@ -1,80 +1,123 @@
-import rclpy
-from rclpy.node import Node
+# import rclpy
+# from rclpy.node import Node
 
 import time
 import random
 
-from std_msgs.msg import String
+# from std_msgs.msg import String
 import carla
-from carla_msgs.msg import CarlaWorldInfo # pylint: disable=import-error
+# from carla_msgs.msg import CarlaWorldInfo # pylint: disable=import-error
+  
 
-class SetupEnv(Node):
+import scout.vehicle.displaymanager as dm
+import scout.vehicle.sensormanager as sm
+import pygame
 
-    def __init__(self):
-        super().__init__('setup_env')
-        self.publisher_ = self.create_publisher(String, 'topic', 10)
+def main(args=None):
+    vehicle_list=[]
+    try:
 
-
-        self.get_logger().info('Connecting to Carla')
-        
-
-
+        timer = sm.CustomTimer()
 
         client = carla.Client('localhost', 2000)
         client.set_timeout(2.0)
-        self.world = client.get_world()
-        #self.world = client.load_world('Town02')
-        self.world = client.load_world('Town01_Opt', carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
-        self.world.unload_map_layer(carla.MapLayer.Buildings)
-        self.world.unload_map_layer(carla.MapLayer.ParkedVehicles)
-        self.world.unload_map_layer(carla.MapLayer.Foliage)
+        world = client.get_world()
+
+        world = client.load_world('Town02')
+        world = client.load_world('Town01_Opt', carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
+        original_settings = world.get_settings()
+        world.unload_map_layer(carla.MapLayer.Buildings)
+        world.unload_map_layer(carla.MapLayer.ParkedVehicles)
+        world.unload_map_layer(carla.MapLayer.Foliage)
+
+        # traffic_manager = client.get_trafficmanager(8000)
+        # traffic_manager.set_synchronous_mode(True)
+        settings = world.get_settings()
+        settings.synchronous_mode = True
+        settings.fixed_delta_seconds = 0.05
+        world.apply_settings(settings)
+
+        print('Connected to Carla!')
 
 
-        self.get_logger().info('Connected to Carla!')
-
-
-        self.actor_list = []
-        blueprint_library = self.world.get_blueprint_library()
+        actor_list = []
+        blueprint_library = world.get_blueprint_library()
 
         #create ego vehicle
         bp = random.choice(blueprint_library.filter('vehicle.tesla.*'))
         #init_pos = carla.Transform(carla.Location(x=21.4, y=-7.62, z=0.05), carla.Rotation(yaw=180))
         init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
-        self.vehicle = self.world.spawn_actor(bp, init_pos)
-
+        vehicle = world.spawn_actor(bp, init_pos)
+        vehicle_list.append(vehicle)
         
+        width, height=800,600
+        # Load display
+        display_manager = None
+        # Display Manager organize all the sensors an its display in a window
+        # If can easily configure the grid and the total window size
+        display_manager = dm.DisplayManager(grid_size=[2, 3], window_size=[width, height])
 
+        # Then, SensorManager can be used to spawn RGBCamera, LiDARs and SemanticLiDARs as needed
+        # and assign each of them to a grid position, 
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
+                        vehicle, {}, display_pos=[0, 0])
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
+                        vehicle, {}, display_pos=[0, 1])
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
+                        vehicle, {}, display_pos=[0, 2])
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
+                        vehicle, {}, display_pos=[1, 1])
 
-        timer_period = 3  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.actor_list.append(self.vehicle)
+        sm.SensorManager(world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+                        vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
+        sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+                        vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
 
-        self.i = 0
-
-    def timer_callback(self):
-        self.get_logger().info('Starting timer')
-        #msg = String()
-        #msg.data = 'Hello World: %d' % self.i
-        #self.publisher_.publish(msg)
-        #self.get_logger().info('Publishing: "%s"' % msg.data)
-        #self.i += 1
-        location = self.vehicle.get_location()
-        self.get_logger().info(str(location))
+        #Simulation loop
+        call_exit = False
+        time_init_sim = timer.time()
+        sync=True
+        clock = pygame.time.Clock()
+        ackermann_control = carla.VehicleAckermannControl()
         
+        counter=0
+        while True:
+            counter+=1
+            # Carla Tick
+            if sync:
+                world.tick()
+            else:
+                world.wait_for_tick()
+            clock.tick_busy_loop(60)
+
+            ackermann_control.speed=0.5
+            if counter==100:
+                ackermann_control.speed=ackermann_control.speed*-1
+                counter=0
+            vehicle.apply_ackermann_control(ackermann_control)
+            # Render received data
+            display_manager.render()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    call_exit = True
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == K_ESCAPE or event.key == K_q:
+                        call_exit = True
+                        break
+
+            if call_exit:
+                break
 
 
-def main(args=None):
-    rclpy.init(args=args)
+    finally:
+        if display_manager:
+            display_manager.destroy()
 
-    minimal_publisher = SetupEnv()
+        client.apply_batch([carla.command.DestroyActor(x) for x in vehicle_list])
 
-    rclpy.spin(minimal_publisher)
+        world.apply_settings(original_settings)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    minimal_publisher.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':
