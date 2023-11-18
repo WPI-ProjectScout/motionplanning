@@ -12,6 +12,7 @@ import carla
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
 import pygame
+from scout.navigation.global_route_planner import GlobalRoutePlanner
 
 def main(args=None):
     vehicle_list=[]
@@ -38,7 +39,7 @@ def main(args=None):
         world.apply_settings(settings)
 
         print('Connected to Carla!')
-
+        global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
 
         actor_list = []
         blueprint_library = world.get_blueprint_library()
