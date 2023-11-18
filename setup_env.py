@@ -20,7 +20,7 @@ def main(args=None):
         timer = sm.CustomTimer()
 
         client = carla.Client('localhost', 2000)
-        client.set_timeout(2.0)
+        client.set_timeout(60)
         world = client.get_world()
 
         world = client.load_world('Town02')
