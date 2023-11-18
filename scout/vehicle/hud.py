@@ -64,6 +64,7 @@ class HUD(object):
         self._info_text += ['GPS Coordinates:% 24s' % gps_coordinates]
 
         #New Destination info feature
+
         ##destination = 'Destination: %s' % get_destination_info()  # Append destination to HUD text
         ##self._info_text += [destination]
 
@@ -82,19 +83,19 @@ class HUD(object):
         # Function to get route info
         ##def get_route_info():
 
-        #New route info feature
-        ##collision_warning = 'Collision Warning: %s' % check_collision_warning(world)
-        ##self._info_text += [collision_warning]
+        ######Collision warning info 
+        collision_warning = 'Collision Warning: %s' % check_collision_warning(world)
+        self._info_text += [collision_warning]
 
-        ##def check_collision_warning(world):
-        ##    colhist = 
-        ##    recent_collisions = 
+        def check_collision_warning(world):
+            colhist = world.collision_sensor.get_collision_history()
+            recent_collisions = [colhist[x + self.frame - 200] for x in range(0, 200)]
 
-        # Determine if a collision is likely
-    ##    if any(recent_collisions):
-    ##        return 'Risk of Collision!'
-    ##    else:
-    ##        return 'No Collision Risk'
+            # Determine if a collision is likely
+            if any(recent_collisions):
+                return 'Risk of Collision!'
+            else:
+                return 'No Collision Risk'
     
         self._info_text = [
             'Server:  % 16.0f FPS' % self.server_fps,
