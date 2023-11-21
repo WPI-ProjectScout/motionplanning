@@ -126,15 +126,15 @@ def main(args=None):
                 break
 
             # Check if the local planner has finished
-            # if agent.done():
-            #     print("Planning finished")
-            #     break
+            if agent.done():
+                print("Planning finished")
+                break
 
-            # # Runs the local planner and generates a control command
-            # # Checks if a vehicle or a traffic light is very close and applies the break if needed
-            # control = agent.run_step()
-            # control.manual_gear_shift = False
-            # vehicle.apply_control(control)
+            # Runs the local planner and generates a control command
+            # Checks if a vehicle or a traffic light is very close and applies the break if needed
+            control = agent.run_step()
+            control.manual_gear_shift = False
+            vehicle.apply_control(control)
 
 
     finally:
