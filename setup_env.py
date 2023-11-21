@@ -7,7 +7,7 @@ import random
 # from std_msgs.msg import String
 import carla
 # from carla_msgs.msg import CarlaWorldInfo # pylint: disable=import-error
-  
+
 
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
@@ -39,18 +39,17 @@ def main(args=None):
         world.apply_settings(settings)
 
         print('Connected to Carla!')
-        global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
 
-        actor_list = []
+        # Create ego vehicle out of the available blueprints of vehicles in this world
         blueprint_library = world.get_blueprint_library()
-
-        #create ego vehicle
         bp = random.choice(blueprint_library.filter('vehicle.tesla.*'))
+
+        # Tell the world to spawn the vehicle and add to list
         #init_pos = carla.Transform(carla.Location(x=21.4, y=-7.62, z=0.05), carla.Rotation(yaw=180))
         init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
         vehicle = world.spawn_actor(bp, init_pos)
         vehicle_list.append(vehicle)
-        
+
         width, height=800,600
         # Load display
         display_manager = None
@@ -59,20 +58,22 @@ def main(args=None):
         display_manager = dm.DisplayManager(grid_size=[2, 3], window_size=[width, height])
 
         # Then, SensorManager can be used to spawn RGBCamera, LiDARs and SemanticLiDARs as needed
-        # and assign each of them to a grid position, 
-        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
+        # and assign each of them to a grid position,
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)),
                         vehicle, {}, display_pos=[0, 0])
-        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)),
                         vehicle, {}, display_pos=[0, 1])
-        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)),
                         vehicle, {}, display_pos=[0, 2])
-        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
+        sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)),
                         vehicle, {}, display_pos=[1, 1])
 
-        sm.SensorManager(world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+        sm.SensorManager(world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)),
                         vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
-        sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+        sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)),
                         vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
+
+        # global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
 
         #Simulation loop
         call_exit = False
@@ -80,7 +81,7 @@ def main(args=None):
         sync=True
         clock = pygame.time.Clock()
         ackermann_control = carla.VehicleAckermannControl()
-        
+
         counter=0
         while True:
             counter+=1
