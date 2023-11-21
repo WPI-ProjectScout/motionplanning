@@ -13,6 +13,7 @@ import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
 import pygame
 from scout.navigation.global_route_planner import GlobalRoutePlanner
+from scout.navigation.simple_agent import SimpleAgent
 
 def main(args=None):
     vehicle_list=[]
@@ -74,6 +75,7 @@ def main(args=None):
                         vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
 
         # global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
+        agent = SimpleAgent(vehicle, 30)
 
         #Simulation loop
         call_exit = False
