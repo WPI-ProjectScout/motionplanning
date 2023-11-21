@@ -42,14 +42,7 @@ class SimpleAgent(object):
         """
         self._vehicle = vehicle
         self._world = self._vehicle.get_world()
-        if map_inst:
-            if isinstance(map_inst, carla.Map):
-                self._map = map_inst
-            else:
-                print("Warning: Ignoring the given map as it is not a 'carla.Map'")
-                self._map = self._world.get_map()
-        else:
-            self._map = self._world.get_map()
+        self._map = self._world.get_map()
         self._last_traffic_light = None
 
         # Base parameters
@@ -90,14 +83,7 @@ class SimpleAgent(object):
 
         # Initialize the planners
         self._local_planner = LocalPlanner(self._vehicle, opt_dict=opt_dict, map_inst=self._map)
-        if grp_inst:
-            if isinstance(grp_inst, GlobalRoutePlanner):
-                self._global_planner = grp_inst
-            else:
-                print("Warning: Ignoring the given map as it is not a 'carla.Map'")
-                self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
-        else:
-            self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
+        self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
 
         # Get the static elements of the scene
         self._lights_list = self._world.get_actors().filter("*traffic_light*")

@@ -74,8 +74,17 @@ def main(args=None):
         sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)),
                         vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
 
+        # We initialize the agent that will be in charge of calling the correspoing modules for the mootion planning task
         # global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
         agent = SimpleAgent(vehicle, 30)
+
+        # We define a goal position for the agent
+        spawn_points = world.get_map().get_spawn_points()
+        destination = random.choice(spawn_points).location
+
+        # When the destination is set, the agent automatically calls the global planner to generate a route of waypoints
+        # This also assigns the waypoints route/plan to the local planner
+        agent.set_destination(destination)
 
         #Simulation loop
         call_exit = False
@@ -84,9 +93,10 @@ def main(args=None):
         clock = pygame.time.Clock()
         ackermann_control = carla.VehicleAckermannControl()
 
-        counter=0
+        # counter=0
         while True:
-            counter+=1
+            # counter+=1
+
             # Carla Tick
             if sync:
                 world.tick()
@@ -94,17 +104,19 @@ def main(args=None):
                 world.wait_for_tick()
             clock.tick_busy_loop(60)
 
-            ackermann_control.speed=0.5
-            if counter==100:
-                ackermann_control.speed=ackermann_control.speed*-1
-                counter=0
-            vehicle.apply_ackermann_control(ackermann_control)
+            # ackermann_control.speed=0.5
+            # if counter==100:
+            #     ackermann_control.speed=ackermann_control.speed*-1
+            #     counter=0
+            # vehicle.apply_ackermann_control(ackermann_control)
+
             # Render received data
             display_manager.render()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     call_exit = True
+                    break
                 elif event.type == pygame.KEYDOWN:
                     if event.key == K_ESCAPE or event.key == K_q:
                         call_exit = True
@@ -112,6 +124,17 @@ def main(args=None):
 
             if call_exit:
                 break
+
+            # Check if the local planner has finished
+            # if agent.done():
+            #     print("Planning finished")
+            #     break
+
+            # # Runs the local planner and generates a control command
+            # # Checks if a vehicle or a traffic light is very close and applies the break if needed
+            # control = agent.run_step()
+            # control.manual_gear_shift = False
+            # vehicle.apply_control(control)
 
 
     finally:
