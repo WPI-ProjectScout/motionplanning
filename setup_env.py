@@ -1,5 +1,12 @@
-# import rclpy
-# from rclpy.node import Node
+#!/usr/bin/env python
+
+# Copyright (c) 2018 Intel Labs.
+# authors: German Ros (german.ros@intel.com)
+#
+# This work is licensed under the terms of the MIT license.
+# For a copy, see <https://opensource.org/licenses/MIT>.
+
+"""Example of automatic vehicle control from client side."""
 
 import time
 import random
@@ -13,6 +20,10 @@ import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
 import pygame
 from scout.navigation.global_route_planner import GlobalRoutePlanner
+from scout.vehicle.hud import HUD
+from scout.vehicle.world import World
+
+
 
 def main(args=None):
     vehicle_list=[]
@@ -24,22 +35,27 @@ def main(args=None):
         client.set_timeout(60)
         world = client.get_world()
 
-        world = client.load_world('Town02')
+        # world = client.load_world('Town02')
         world = client.load_world('Town01_Opt', carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
         original_settings = world.get_settings()
         world.unload_map_layer(carla.MapLayer.Buildings)
         world.unload_map_layer(carla.MapLayer.ParkedVehicles)
         world.unload_map_layer(carla.MapLayer.Foliage)
-
+        map=world.get_map()
         # traffic_manager = client.get_trafficmanager(8000)
         # traffic_manager.set_synchronous_mode(True)
         settings = world.get_settings()
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = 0.05
         world.apply_settings(settings)
+        
+        hud = HUD(400, 400)
+        args=None
+        world2 = World(client.get_world(), hud, args)
+
 
         print('Connected to Carla!')
-        global_route_plannner=GlobalRoutePlanner(world.get_map(),1000)
+        global_route_plannner=GlobalRoutePlanner(map,1000)
 
         actor_list = []
         blueprint_library = world.get_blueprint_library()
@@ -50,8 +66,29 @@ def main(args=None):
         init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
         vehicle = world.spawn_actor(bp, init_pos)
         vehicle_list.append(vehicle)
+        clock = pygame.time.Clock()
+        world2.simple_restart(vehicle)
         
-        width, height=800,600
+        try:
+            clock.tick_busy_loop(60)
+            
+            # Set the agent destination randomly
+            spawn_points = map.get_spawn_points()
+            start_waypoint = map.get_waypoint(init_pos.location)
+            
+            
+            destination = random.choice(spawn_points).location
+            end_waypoint = map.get_waypoint(destination)
+            start_location = start_waypoint.transform.location
+            end_location = end_waypoint.transform.location
+            route_plan = global_route_plannner.trace_route(start_location, end_location)
+        except Exception as e:
+            print("Error in new code:",e)
+
+
+
+        
+        width, height=1200,800
         # Load display
         display_manager = None
         # Display Manager organize all the sensors an its display in a window
@@ -78,10 +115,13 @@ def main(args=None):
         call_exit = False
         time_init_sim = timer.time()
         sync=True
-        clock = pygame.time.Clock()
-        ackermann_control = carla.VehicleAckermannControl()
         
+        ackermann_control = carla.VehicleAckermannControl()
+        # display = pygame.display.set_mode(
+        #     (1200, 800),
+        #     pygame.HWSURFACE | pygame.DOUBLEBUF)
         counter=0
+        
         while True:
             counter+=1
             # Carla Tick
@@ -92,12 +132,16 @@ def main(args=None):
             clock.tick_busy_loop(60)
 
             ackermann_control.speed=0.5
-            if counter==100:
-                ackermann_control.speed=ackermann_control.speed*-1
-                counter=0
+            # if counter==100:
+            #     ackermann_control.speed=ackermann_control.speed*-1
+            #     counter=0
             vehicle.apply_ackermann_control(ackermann_control)
             # Render received data
+            #if counter<10:
             display_manager.render()
+            world2.tick(clock)
+            world2.render(display_manager.display)
+            pygame.display.flip()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -110,7 +154,8 @@ def main(args=None):
             if call_exit:
                 break
 
-
+    except Exception as e:
+            print("Error in new code:",e)
     finally:
         if display_manager:
             display_manager.destroy()
