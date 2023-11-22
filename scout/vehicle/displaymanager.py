@@ -35,7 +35,7 @@ class DisplayManager:
         for s in self.sensor_list:
             s.render()
 
-        pygame.display.flip()
+        # pygame.display.flip()
 
     def destroy(self):
         for s in self.sensor_list:
