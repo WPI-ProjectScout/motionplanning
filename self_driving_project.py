@@ -1,8 +1,11 @@
 import carla
 import random
-from scout.navigation.global_route_planner import GlobalRoutePlanner
-import live_plotter as lv
 import time
+import pygame
+import live_plotter as lv
+from scout.navigation.global_route_planner import GlobalRoutePlanner
+import scout.vehicle.displaymanager as dm
+import scout.vehicle.sensormanager as sm
 
 def main():
     client = carla.Client('localhost', 2000)
@@ -23,13 +26,14 @@ def main():
     bp = random.choice(blueprint_library.filter('vehicle.tesla.*'))
 
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
-    # spawn_point = random.choice(world.get_map().get_spawn_points())
-    spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
+    spawn_point = random.choice(world.get_map().get_spawn_points())
+    # spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
     # This is the player
-    vehicle = world.try_spawn_actor(bp, spawn_point)
+    # vehicle = world.try_spawn_actor(bp, spawn_point)
+    vehicle = world.spawn_actor(bp, spawn_point)
 
-    # destination_point = random.choice(world.get_map().get_spawn_points())
-    destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
+    destination_point = random.choice(world.get_map().get_spawn_points())
+    # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
 
     sampling_resolution = 2.0
     global_route_plannner = GlobalRoutePlanner(map, sampling_resolution)
@@ -82,7 +86,59 @@ def main():
     
     lp_traj.refresh()
 
-    # CONTROLLER_OUTPUT_FOLDER
+    width, height=800,600
+    # Load display
+    display_manager = None
+    # Display Manager organize all the sensors an its display in a window
+    # If can easily configure the grid and the total window size
+    display_manager = dm.DisplayManager(grid_size=[2, 3], window_size=[width, height])
+
+    # Then, SensorManager can be used to spawn RGBCamera, LiDARs and SemanticLiDARs as needed
+    # and assign each of them to a grid position, 
+    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
+                    vehicle, {}, display_pos=[0, 0])
+    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
+                    vehicle, {}, display_pos=[0, 1])
+    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
+                    vehicle, {}, display_pos=[0, 2])
+    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
+                    vehicle, {}, display_pos=[1, 1])
+
+    sm.SensorManager(world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+                    vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
+    sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+                    vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
+
+    
+    ackermann_control = carla.VehicleAckermannControl()
+
+    clock = pygame.time.Clock()
+
+    call_exit = False
+
+    time.sleep(5)
+
+    while True:
+        world.tick()
+        clock.tick_busy_loop(60)
+
+        ackermann_control.speed=0.5
+        vehicle.apply_ackermann_control(ackermann_control)
+
+        # Render received data
+        display_manager.render()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                call_exit = True
+                break
+
+        if call_exit:
+            break
+
+    if display_manager:
+        display_manager.destroy()
+
     time.sleep(10)
     
 
