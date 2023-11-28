@@ -122,9 +122,16 @@ def main():
         # print(route_trace[i])
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
-        waypoints.append([x, y, 5])
-        x_points.append(x)
-        y_points.append(y)
+        if i > 0:
+            compare = (route_trace[i][0].transform.location == route_trace[i-1][0].transform.location)
+            if compare == False:
+                waypoints.append([x, y, 5])
+                x_points.append(x)
+                y_points.append(y)
+        else:
+            waypoints.append([x, y, 5])
+            x_points.append(x)
+            y_points.append(y)
 
     vehicle_transform = vehicle.get_transform()
     start_x = vehicle_transform.location.x
@@ -450,6 +457,8 @@ def main():
         if call_exit:
             break
 
+    time.sleep(10)
+    
     if display_manager:
         display_manager.destroy()
     
