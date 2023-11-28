@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
 2D Controller Class to be used for the CARLA waypoint follower demo.
 """
 
-import cutils
+import cutil as cutils
 import numpy as np
 
 class Controller2D(object):

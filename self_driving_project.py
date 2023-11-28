@@ -83,11 +83,15 @@ def main():
     print(len(route_trace))
     x_points = []
     y_points = []
+    # waypoints will be of the form
+    # (rows = waypoints, columns = [x, y, v])
+    # To initialize this, the v column will be set to 0
+    # The velocity profile generator will update v later
     waypoints = []
     for i in range(len(route_trace)):
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
-        waypoints.append([x, y])
+        waypoints.append([x, y, 0])
         x_points.append(x)
         y_points.append(y)
 
@@ -150,9 +154,16 @@ def main():
 
     time.sleep(3)
     call_exit = False
+    LP_FREQUENCY_DIVISOR = 2
+    frame = 0
     while True:
         world.tick()
         clock.tick()
+        frame += 1
+
+        if frame % LP_FREQUENCY_DIVISOR == 0:
+            # Run the local planning tasks in this section
+            pass
 
         vehicle_transform = vehicle.get_transform()
         current_x = vehicle_transform.location.x
