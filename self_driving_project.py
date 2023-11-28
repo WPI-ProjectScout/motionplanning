@@ -34,7 +34,7 @@ LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the
                                           # number.
 
 def prepare_control_command(throttle, steer, brake, 
-                         hand_brake=False, reverse=False):
+                         hand_brake=False, reverse=False, manual_gear_shift=False):
     """Send control command to CARLA client.
     
     Send control command to CARLA client.
@@ -58,6 +58,7 @@ def prepare_control_command(throttle, steer, brake,
     control.brake = brake
     control.hand_brake = hand_brake
     control.reverse = reverse
+    control.manual_gear_shift = manual_gear_shift
     return control
 
 def main():
@@ -178,14 +179,17 @@ def main():
     local_waypoints = None
     path_validity   = np.zeros((NUM_PATHS, 1), dtype=bool)
     lp = local_planner.LocalPlanner(NUM_PATHS,
-                                        PATH_OFFSET,
-                                        CIRCLE_OFFSETS,
-                                        CIRCLE_RADII,
-                                        PATH_SELECT_WEIGHT,
-                                        TIME_GAP,
-                                        A_MAX,
-                                        SLOW_SPEED,
-                                        STOP_LINE_BUFFER)
+                                    PATH_OFFSET,
+                                    CIRCLE_OFFSETS,
+                                    CIRCLE_RADII,
+                                    PATH_SELECT_WEIGHT,
+                                    TIME_GAP,
+                                    A_MAX,
+                                    SLOW_SPEED,
+                                    STOP_LINE_BUFFER)
+    bp = behavioural_planner.BehaviouralPlanner(BP_LOOKAHEAD_BASE,
+                                                [],#stopsign_fences,
+                                                LEAD_VEHICLE_LOOKAHEAD)
     
     # controller = controller2d.Controller2D(waypoints)
     
@@ -194,24 +198,45 @@ def main():
     time.sleep(3)
     call_exit = False
     LP_FREQUENCY_DIVISOR = 2
+    initial_execution_time = time.time()
+    current_timestamp = initial_execution_time
+    WAIT_TIME_BEFORE_START = 1.00   # game seconds (time before controller start)
     frame = 0
     while True:
         world.tick()
         clock.tick()
         frame += 1
 
-        if frame % LP_FREQUENCY_DIVISOR == 0:
-            # Run the local planning tasks in this section
-            pass
-
         vehicle_transform = vehicle.get_transform()
+        prev_timestamp = current_timestamp
+        current_timestamp = time.time() - initial_execution_time
         current_x = vehicle_transform.location.x
         current_y = vehicle_transform.location.y
-        yaw = math.radians(vehicle_transform.rotation.yaw)
+        current_yaw = math.radians(vehicle_transform.rotation.yaw)
         current_speed = get_speed(vehicle)/ 3.6
+
+        # Allow some initialization time for everything
+        if current_timestamp <= WAIT_TIME_BEFORE_START:
+            control = prepare_control_command(throttle=0.0, steer=0, brake=1.0)
+            vehicle.apply_control(control)
+            continue
+        else:
+            current_timestamp = current_timestamp - WAIT_TIME_BEFORE_START
+
+        if frame % LP_FREQUENCY_DIVISOR == 0:
+            # Run the local planning tasks in this section
+
+            # Compute open loop speed estimate.
+            open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
+
+            # Calculate the goal state set in the local frame for the local planner.
+            # Current speed should be open loop for the velocity profile generation.
+            ego_state = [current_x, current_y, current_yaw, open_loop_speed]
+
+            # Set lookahead based on current speed.
+            bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
         
         control = prepare_control_command(throttle=0.0, steer=0, brake=1.0)
-        control.manual_gear_shift = False
         vehicle.apply_control(control)
 
         # Render received data
