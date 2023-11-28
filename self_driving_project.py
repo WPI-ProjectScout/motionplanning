@@ -146,7 +146,10 @@ def main():
                                 x0=x_points, y0=y_points,
                                 linestyle="-", marker="", color='g')
     
-    lp_traj.refresh()
+    # Add local path proposals
+    for i in range(NUM_PATHS):
+        trajectory_fig.add_graph("local_path " + str(i), window_size=200,
+                                    x0=None, y0=None, color=[0.0, 0.0, 1.0])
 
     width, height=800,600
     # Load display
@@ -223,6 +226,9 @@ def main():
         else:
             current_timestamp = current_timestamp - WAIT_TIME_BEFORE_START
 
+        ##############
+        # Planning
+        ##############
         if frame % LP_FREQUENCY_DIVISOR == 0:
             # Run the local planning tasks in this section
 
@@ -235,7 +241,44 @@ def main():
 
             # Set lookahead based on current speed.
             bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
+
+            # Perform a state transition in the behavioural planner.
+            bp.transition_state(waypoints, ego_state, current_speed)
+
+            # Check to see if we need to follow the lead vehicle.
+            bp.check_for_lead_vehicle(ego_state, [])
+
+            # Compute the goal state set from the behavioural planner's computed goal state.
+            goal_state_set = lp.get_goal_state_set(bp._goal_index, bp._goal_state, waypoints, ego_state)
+
+            # Calculate planned paths in the local frame.
+            paths, path_validity = lp.plan_paths(goal_state_set)
+
+            # Transform those paths back to the global frame.
+            paths = local_planner.transform_paths(paths, ego_state)
+
+        ##############
+        # Plots update
+        ##############
+        if frame % LP_FREQUENCY_DIVISOR == 0:
+            path_counter = 0
+            for i in range(NUM_PATHS):
+                # If a path was invalid in the set, there is no path to plot.
+                if path_validity[i]:
+                    # Colour paths according to collision checking.
+                    # if not collision_check_array[path_counter]:
+                    #     colour = 'r'
+                    # elif i == best_index:
+                    #     colour = 'k'
+                    # else:
+                    colour = 'b'
+                    trajectory_fig.update("local_path " + str(i), paths[path_counter][0], paths[path_counter][1], colour)
+                    path_counter += 1
+                else:
+                    trajectory_fig.update("local_path " + str(i), [ego_state[0]], [ego_state[1]], 'r')
         
+        lp_traj.refresh()
+
         control = prepare_control_command(throttle=0.0, steer=0, brake=1.0)
         vehicle.apply_control(control)
 

@@ -346,6 +346,10 @@ class BehaviouralPlanner:
             self._follow_lead_vehicle: Boolean flag on whether the ego vehicle
                 should follow (true) the lead car or not (false).
         """
+        # TODO update later
+        self._follow_lead_vehicle = False
+        return
+
         # Check lead car position delta vector relative to heading, as well as
         # distance, to determine if car should be followed.
         # Check to see if lead vehicle is within range, and is ahead of us.
