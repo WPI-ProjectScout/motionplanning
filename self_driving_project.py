@@ -5,9 +5,9 @@ import pygame
 import math
 import numpy as np
 import live_plotter as lv
-import controller2d
+import vehicle.controller2d
 from agents.tools.misc import get_speed
-from scout.navigation.global_route_planner import GlobalRoutePlanner
+from planning.global_route_planner import GlobalRoutePlanner
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
 
