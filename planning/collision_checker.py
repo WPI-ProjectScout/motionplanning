@@ -17,14 +17,6 @@ class CollisionChecker:
         self._circle_radii   = circle_radii
         self._weight         = weight
 
-    ######################################################
-    ######################################################
-    # MODULE 7: CHECKING FOR COLLISSIONS
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Takes in a set of paths and obstacles, and returns an array
     # of bools that says whether or not each path is collision free.
     def collision_check(self, paths, obstacles):
@@ -109,14 +101,6 @@ class CollisionChecker:
 
         return collision_check_array
 
-    ######################################################
-    ######################################################
-    # MODULE 7: SELECTING THE BEST PATH INDEX
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Selects the best path in the path set, according to how closely
     # it follows the lane centerline, and how far away it is from other
     # paths that are in collision. 

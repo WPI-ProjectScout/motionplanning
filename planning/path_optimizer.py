@@ -18,14 +18,6 @@ class PathOptimizer:
         self._yf = 0.0
         self._tf = 0.0
 
-    ######################################################
-    ######################################################
-    # MODULE 7: PARAMETER OPTIMIZATION FOR POLYNOMIAL SPIRAL
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Sets up the optimization problem to compute a spiral to a given
     # goal point, (xf, yf, tf).
     def optimize_spiral(self, xf, yf, tf):
@@ -92,14 +84,6 @@ class PathOptimizer:
         spiral = self.sample_spiral(res.x)
         return spiral
 
-    ######################################################
-    ######################################################
-    # MODULE 7: COMPUTE LIST OF THETAS
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # This function computes the theta values for a given list of
     # arc lengths, and spiral parameters a, b, c, d.
     # Recall that the equation of a cubic spiral is
@@ -125,14 +109,6 @@ class PathOptimizer:
         return thetas
         # ------------------------------------------------------------------
 
-    ######################################################
-    ######################################################
-    # MODULE 7: SAMPLE SPIRAL PATH
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # This function samples the spiral along its arc length to generate
     # a discrete set of x, y, and theta points for a path.
     def sample_spiral(self, p):
