@@ -5,7 +5,7 @@ import pygame
 import math
 import numpy as np
 import live_plotter as lv
-import vehicle.controller2d
+import vehicle.controller2d as controller2d
 import planning.local_planner as local_planner
 import planning.behavioural_planner as behavioural_planner
 from agents.tools.misc import get_speed
@@ -37,6 +37,9 @@ LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the
 INTERP_MAX_POINTS_PLOT    = 10   # number of points used for displaying
                                  # selected path
 INTERP_DISTANCE_RES       = 0.01 # distance between interpolated points
+
+DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
+                                       # simulation ends
 
 def prepare_control_command(throttle, steer, brake, 
                          hand_brake=False, reverse=False, manual_gear_shift=False):
@@ -108,18 +111,18 @@ def main():
     # The carla.Waypoint class contains a carla.Transform object
     # The transform object contains a location and a rotation
     route_trace = global_route_plannner.trace_route(start_location, end_location)
-    print(len(route_trace))
     x_points = []
     y_points = []
     # waypoints will be of the form
     # (rows = waypoints, columns = [x, y, v])
-    # To initialize this, the v column will be set to 0
+    # To initialize this, the v column will be set to 10
     # The velocity profile generator will update v later
     waypoints = []
     for i in range(len(route_trace)):
+        # print(route_trace[i])
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
-        waypoints.append([x, y, 0])
+        waypoints.append([x, y, 10])
         x_points.append(x)
         y_points.append(y)
 
@@ -212,7 +215,7 @@ def main():
                                                 [],#stopsign_fences,
                                                 LEAD_VEHICLE_LOOKAHEAD)
     
-    # controller = controller2d.Controller2D(waypoints)
+    controller = controller2d.Controller2D(waypoints)
     
     clock = pygame.time.Clock()
 
@@ -336,8 +339,24 @@ def main():
                 wp_interp.append(list(local_waypoints_np[-1]))
                 
                 # Update the other controller values and controls
-                # controller.update_waypoints(wp_interp)
+                controller.update_waypoints(wp_interp)
                 pass
+
+        ##############
+        # Controls update
+        ##############
+        if local_waypoints != None and local_waypoints != []:
+            controller.update_values(current_x, current_y, current_yaw,
+                                     current_speed,
+                                     current_timestamp, frame)
+            controller.update_controls()
+            cmd_throttle, cmd_steer, cmd_brake = controller.get_commands()
+        else:
+            cmd_throttle = 0.0
+            cmd_steer = 0.0
+            cmd_brake = 0.0
+        control = prepare_control_command(throttle=cmd_throttle, steer=cmd_steer, brake=cmd_brake)
+        vehicle.apply_control(control)
 
         ##############
         # Plots update
@@ -373,11 +392,19 @@ def main():
         
         lp_traj.refresh()
 
-        control = prepare_control_command(throttle=0.0, steer=0, brake=1.0)
-        vehicle.apply_control(control)
-
         # Render received data
         display_manager.render()
+
+        # Find if reached the end of waypoint. If the car is within
+        # DIST_THRESHOLD_TO_LAST_WAYPOINT to the last waypoint,
+        # the simulation will end.
+        dist_to_last_waypoint = np.linalg.norm(np.array([
+            waypoints[-1][0] - current_x,
+            waypoints[-1][1] - current_y]))
+        if  dist_to_last_waypoint < DIST_THRESHOLD_TO_LAST_WAYPOINT:
+            reached_the_end = True
+        # if reached_the_end:
+        #     break
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

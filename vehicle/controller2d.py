@@ -4,7 +4,7 @@
 2D Controller Class to be used for the CARLA waypoint follower demo.
 """
 
-import cutil as cutils
+import cutils
 import numpy as np
 
 class Controller2D(object):
@@ -160,7 +160,7 @@ class Controller2D(object):
             crosstrack_error = np.linalg.norm(crosstrack_vector)
 
             # set deadband to reduce oscillations
-            print(crosstrack_error)
+            # print(crosstrack_error)
             if crosstrack_error < self.vars.cross_track_deadband:
                 crosstrack_error = 0.0
 
@@ -204,6 +204,8 @@ class Controller2D(object):
             ######################################################
             # SET CONTROLS OUTPUT
             ######################################################
+            # print(throttle_output)
+            # print(v_desired)
             self.set_throttle(throttle_output)  # in percent (0 to 1)
             self.set_steer(steer_output)        # in rad (-1.22 to 1.22)
             self.set_brake(brake_output)        # in percent (0 to 1)
