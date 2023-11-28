@@ -2,10 +2,41 @@ import carla
 import random
 import time
 import pygame
+import math
+import numpy as np
 import live_plotter as lv
+import controller2d
+from agents.tools.misc import get_speed
 from scout.navigation.global_route_planner import GlobalRoutePlanner
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
+
+def prepare_control_command(throttle, steer, brake, 
+                         hand_brake=False, reverse=False):
+    """Send control command to CARLA client.
+    
+    Send control command to CARLA client.
+
+    Args:
+        client: The CARLA client object
+        throttle: Throttle command for the sim car [0, 1]
+        steer: Steer command for the sim car [-1, 1]
+        brake: Brake command for the sim car [0, 1]
+        hand_brake: Whether the hand brake is engaged
+        reverse: Whether the sim car is in the reverse gear
+    """
+    control = carla.VehicleControl()
+    # Clamp all values within their limits
+    steer = np.fmax(np.fmin(steer, 1.0), -1.0)
+    throttle = np.fmax(np.fmin(throttle, 1.0), 0)
+    brake = np.fmax(np.fmin(brake, 1.0), 0)
+
+    control.steer = steer
+    control.throttle = throttle
+    control.brake = brake
+    control.hand_brake = hand_brake
+    control.reverse = reverse
+    return control
 
 def main():
     client = carla.Client('localhost', 2000)
@@ -52,9 +83,13 @@ def main():
     print(len(route_trace))
     x_points = []
     y_points = []
+    waypoints = []
     for i in range(len(route_trace)):
-        x_points.append(route_trace[i][0].transform.location.x)
-        y_points.append(route_trace[i][0].transform.location.y)
+        x = route_trace[i][0].transform.location.x
+        y = route_trace[i][0].transform.location.y
+        waypoints.append([x, y])
+        x_points.append(x)
+        y_points.append(y)
 
     lp_traj = lv.LivePlotter(tk_title="Trajectory Trace")
 
@@ -109,21 +144,25 @@ def main():
     sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
 
+    # controller = controller2d.Controller2D(waypoints)
     
-    ackermann_control = carla.VehicleAckermannControl()
-
     clock = pygame.time.Clock()
 
+    time.sleep(3)
     call_exit = False
-
-    time.sleep(5)
-
     while True:
         world.tick()
-        clock.tick_busy_loop(60)
+        clock.tick()
 
-        ackermann_control.speed=0.5
-        vehicle.apply_ackermann_control(ackermann_control)
+        vehicle_transform = vehicle.get_transform()
+        current_x = vehicle_transform.location.x
+        current_y = vehicle_transform.location.y
+        yaw = math.radians(vehicle_transform.rotation.yaw)
+        current_speed = get_speed(vehicle)/ 3.6
+        
+        control = prepare_control_command(throttle=0.0, steer=0, brake=1.0)
+        control.manual_gear_shift = False
+        vehicle.apply_control(control)
 
         # Render received data
         display_manager.render()
@@ -138,8 +177,6 @@ def main():
 
     if display_manager:
         display_manager.destroy()
-
-    time.sleep(10)
     
 
 if __name__ == '__main__':
