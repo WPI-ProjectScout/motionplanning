@@ -6,10 +6,32 @@ import math
 import numpy as np
 import live_plotter as lv
 import vehicle.controller2d
+import planning.local_planner as local_planner
+import planning.behavioural_planner as behavioural_planner
 from agents.tools.misc import get_speed
 from planning.global_route_planner import GlobalRoutePlanner
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
+
+# Planning Constants
+NUM_PATHS = 7
+BP_LOOKAHEAD_BASE      = 8.0              # m
+BP_LOOKAHEAD_TIME      = 2.0              # s
+PATH_OFFSET            = 1.5              # m
+CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
+CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
+TIME_GAP               = 1.0              # s
+PATH_SELECT_WEIGHT     = 10
+A_MAX                  = 1.5              # m/s^2
+SLOW_SPEED             = 2.0              # m/s
+STOP_LINE_BUFFER       = 3.5              # m
+LEAD_VEHICLE_LOOKAHEAD = 20.0             # m
+LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the 
+                                          # local planner operate at a lower
+                                          # frequency than the controller
+                                          # (which operates at the simulation
+                                          # frequency). Must be a natural
+                                          # number.
 
 def prepare_control_command(throttle, steer, brake, 
                          hand_brake=False, reverse=False):
@@ -148,6 +170,23 @@ def main():
     sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
 
+    
+    ################################
+    # Local Planning
+    ################################
+    wp_goal_index   = 0
+    local_waypoints = None
+    path_validity   = np.zeros((NUM_PATHS, 1), dtype=bool)
+    lp = local_planner.LocalPlanner(NUM_PATHS,
+                                        PATH_OFFSET,
+                                        CIRCLE_OFFSETS,
+                                        CIRCLE_RADII,
+                                        PATH_SELECT_WEIGHT,
+                                        TIME_GAP,
+                                        A_MAX,
+                                        SLOW_SPEED,
+                                        STOP_LINE_BUFFER)
+    
     # controller = controller2d.Controller2D(waypoints)
     
     clock = pygame.time.Clock()
