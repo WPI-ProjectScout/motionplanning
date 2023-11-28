@@ -122,7 +122,7 @@ def main():
         # print(route_trace[i])
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
-        waypoints.append([x, y, 10])
+        waypoints.append([x, y, 5])
         x_points.append(x)
         y_points.append(y)
 
@@ -132,6 +132,7 @@ def main():
     start_yaw = math.radians(vehicle_transform.rotation.yaw)
 
     lp_traj = lv.LivePlotter(tk_title="Trajectory Trace")
+    lp_1d = lv.LivePlotter(tk_title="Controls Feedback")
 
     FIGSIZE_X_INCHES   = 8      # x figure size of feedback in inches
     FIGSIZE_Y_INCHES   = 8      # y figure size of feedback in inches
@@ -140,9 +141,9 @@ def main():
     PLOT_WIDTH         = 0.8
     PLOT_HEIGHT        = 0.8
 
-    ###
+    ######################################
     # Add 2D position / trajectory plot
-    ###
+    ######################################
     trajectory_fig = lp_traj.plot_new_dynamic_2d_figure(
             title='Vehicle Trajectory',
             figsize=(FIGSIZE_X_INCHES, FIGSIZE_Y_INCHES),
@@ -171,6 +172,26 @@ def main():
     for i in range(NUM_PATHS):
         trajectory_fig.add_graph("local_path " + str(i), window_size=200,
                                     x0=None, y0=None, color=[0.0, 0.0, 1.0])
+        
+    ######################################
+    # Add 1D control plots
+    ######################################
+
+    forward_speed_fig = lp_1d.plot_new_dynamic_figure(title="Forward Speed (m/s)")
+    forward_speed_fig.add_graph("forward_speed", 
+                                label="forward_speed", 
+                                window_size=300)
+    forward_speed_fig.add_graph("reference_signal", 
+                                label="reference_Signal", 
+                                window_size=300)
+    
+    yaw_fig = lp_1d.plot_new_dynamic_figure(title="Yaw (rad)")
+    yaw_fig.add_graph("yaw", 
+                            label="yaw", 
+                            window_size=300)
+    yaw_fig.add_graph("yaw_reference", 
+                            label="yaw_reference", 
+                            window_size=300)
 
     width, height=800,600
     # Load display
@@ -361,6 +382,20 @@ def main():
         ##############
         # Plots update
         ##############
+        forward_speed_fig.roll("forward_speed", 
+                                       current_timestamp, 
+                                       current_speed)
+        forward_speed_fig.roll("reference_signal", 
+                                current_timestamp, 
+                                controller._desired_speed)
+        
+        yaw_fig.roll("yaw", 
+                    current_timestamp, 
+                    current_yaw)
+        yaw_fig.roll("yaw_reference", 
+                    current_timestamp, 
+                    controller._desired_yaw)
+
         if frame % LP_FREQUENCY_DIVISOR == 0:
             path_counter = 0
             for i in range(NUM_PATHS):
@@ -391,6 +426,7 @@ def main():
                     new_colour=[1, 0.5, 0.0])
         
         lp_traj.refresh()
+        lp_1d.refresh()
 
         # Render received data
         display_manager.render()

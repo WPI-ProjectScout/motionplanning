@@ -16,6 +16,7 @@ class Controller2D(object):
         self._current_yaw           = 0
         self._current_speed         = 0
         self._desired_speed         = 0
+        self._desired_yaw           = 0
         self._current_frame         = 0
         self._current_timestamp     = 0
         self._start_control_loop    = False
@@ -193,6 +194,7 @@ class Controller2D(object):
             heading_error = trajectory_heading - yaw
             heading_error = \
                     (heading_error + self._pi) % self._2pi - self._pi
+            self._desired_yaw = trajectory_heading
 
             # Compute steering command based on error
             steer_output = heading_error + \
