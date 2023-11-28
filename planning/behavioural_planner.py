@@ -33,14 +33,6 @@ class BehaviouralPlanner:
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
 
-    ######################################################
-    ######################################################
-    # MODULE 7: TRANSITION STATE FUNCTION
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary internal variables to set. Then follow the TODOs
-    #   and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Handles state transitions and computes the goal state.
     def transition_state(self, waypoints, ego_state, closed_loop_speed):
         """Handles state transitions and computes the goal state.  
@@ -178,14 +170,6 @@ class BehaviouralPlanner:
         else:
             raise ValueError('Invalid state value.')
 
-    ######################################################
-    ######################################################
-    # MODULE 7: GET GOAL INDEX FOR VEHICLE
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Gets the goal index in the list of waypoints, based on the lookahead and
     # the current ego state. In particular, find the earliest waypoint that has accumulated
     # arc length (including closest_len) that is greater than or equal to self._lookahead.
@@ -393,14 +377,6 @@ class BehaviouralPlanner:
             self._follow_lead_vehicle = False
 
 
-######################################################
-######################################################
-# MODULE 7: CLOSEST WAYPOINT INDEX TO VEHICLE
-#   Read over the function comments to familiarize yourself with the
-#   arguments and necessary variables to return. Then follow the TODOs
-#   and use the surrounding comments as a guide.
-######################################################
-######################################################
 # Compute the waypoint index that is closest to the ego vehicle, and return
 # it as well as the distance from the ego vehicle to that waypoint.
 def get_closest_index(waypoints, ego_state):

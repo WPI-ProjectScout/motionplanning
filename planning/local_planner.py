@@ -29,14 +29,6 @@ class LocalPlanner:
             velocity_planner.VelocityPlanner(time_gap, a_max, slow_speed, 
                                              stop_line_buffer)
 
-    ######################################################
-    ######################################################
-    # MODULE 7: GOAL STATE COMPUTATION
-    #   Read over the function comments to familiarize yourself with the
-    #   arguments and necessary variables to return. Then follow the TODOs
-    #   (top-down) and use the surrounding comments as a guide.
-    ######################################################
-    ######################################################
     # Computes the goal state set from a given goal position. This is done by
     # laterally sampling offsets from the goal location along the direction
     # perpendicular to the goal yaw of the ego vehicle.

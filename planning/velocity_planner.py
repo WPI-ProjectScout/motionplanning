@@ -472,14 +472,6 @@ class VelocityPlanner:
 
         return profile
 
-######################################################
-######################################################
-# MODULE 7: COMPUTE TOTAL DISTANCE WITH CONSTANT ACCELERATION
-#   Read over the function comments to familiarize yourself with the
-#   arguments and necessary variables to return. Then follow the TODOs
-#   (top-down) and use the surrounding comments as a guide.
-######################################################
-######################################################
 # Using d = (v_f^2 - v_i^2) / (2 * a), compute the distance
 # required for a given acceleration/deceleration.
 def calc_distance(v_i, v_f, a):
@@ -500,14 +492,6 @@ def calc_distance(v_i, v_f, a):
     return d
     # ------------------------------------------------------------------
 
-######################################################
-######################################################
-# MODULE 7: COMPUTE FINAL SPEED WITH CONSTANT ACCELERATION
-#   Read over the function comments to familiarize yourself with the
-#   arguments and necessary variables to return. Then follow the TODOs
-#   (top-down) and use the surrounding comments as a guide.
-######################################################
-######################################################
 # Using v_f = sqrt(v_i^2 + 2ad), compute the final speed for a given
 # acceleration across a given distance, with initial speed v_i.
 # Make sure to check the discriminant of the radical. If it is negative,
