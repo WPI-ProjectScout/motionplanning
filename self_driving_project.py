@@ -85,7 +85,8 @@ def main():
     world.apply_settings(settings)
 
     blueprint_library = world.get_blueprint_library()
-    bp = random.choice(blueprint_library.filter('vehicle.tesla.*'))
+    bp = random.choice(blueprint_library.filter('vehicle.tesla.model3'))
+    # print(blueprint_library.filter('vehicle.tesla.*'))
 
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
     spawn_point = random.choice(world.get_map().get_spawn_points())
@@ -123,8 +124,12 @@ def main():
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
         if i > 0:
-            compare = (route_trace[i][0].transform.location == route_trace[i-1][0].transform.location)
-            if compare == False:
+            prev_x = route_trace[i-1][0].transform.location.x
+            prev_y = route_trace[i-1][0].transform.location.y
+            dist = np.sqrt((x - prev_x)**2 + (y - prev_y)**2)
+            # compare = (route_trace[i][0].transform.location == route_trace[i-1][0].transform.location)
+            # if compare == False:
+            if dist >= 0.25:
                 waypoints.append([x, y, 5])
                 x_points.append(x)
                 y_points.append(y)
@@ -249,6 +254,7 @@ def main():
 
     time.sleep(3)
     call_exit = False
+    reached_the_end = False
     LP_FREQUENCY_DIVISOR = 2
     initial_execution_time = time.time()
     current_timestamp = initial_execution_time
@@ -384,6 +390,7 @@ def main():
             cmd_steer = 0.0
             cmd_brake = 0.0
         control = prepare_control_command(throttle=cmd_throttle, steer=cmd_steer, brake=cmd_brake)
+        # print(control.steer)
         vehicle.apply_control(control)
 
         ##############
@@ -446,8 +453,8 @@ def main():
             waypoints[-1][1] - current_y]))
         if  dist_to_last_waypoint < DIST_THRESHOLD_TO_LAST_WAYPOINT:
             reached_the_end = True
-        # if reached_the_end:
-        #     break
+        if reached_the_end:
+            break
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -457,7 +464,7 @@ def main():
         if call_exit:
             break
 
-    time.sleep(10)
+    time.sleep(3)
     
     if display_manager:
         display_manager.destroy()

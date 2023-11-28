@@ -85,6 +85,7 @@ class LocalPlanner:
             delta_x = waypoints[goal_index+1][0] - waypoints[goal_index][0]
             delta_y = waypoints[goal_index+1][1] - waypoints[goal_index][1]
         heading = np.arctan2(delta_y, delta_x)
+        # print("delta x: ", delta_x, " delta y: ", delta_y, " = ", heading)
         # ------------------------------------------------------------------
 
         # Compute the center goal state in the local frame using 
