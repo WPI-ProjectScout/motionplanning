@@ -8,7 +8,7 @@ import live_plotter as lv
 import vehicle.controller2d as controller2d
 import planning.local_planner as local_planner
 import planning.behavioural_planner as behavioural_planner
-from agents.tools.misc import get_speed
+from agents.tools.misc import get_speed, get_trafficlight_trigger_location
 from planning.global_route_planner import GlobalRoutePlanner
 import scout.vehicle.displaymanager as dm
 import scout.vehicle.sensormanager as sm
@@ -32,6 +32,8 @@ LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the
                                           # (which operates at the simulation
                                           # frequency). Must be a natural
                                           # number.
+
+TRAFFIC_LIGHT_LOOKAHEAD = 30
 
 # Path interpolation parameters
 INTERP_MAX_POINTS_PLOT    = 10   # number of points used for displaying
@@ -88,14 +90,18 @@ def main():
     bp = random.choice(blueprint_library.filter('vehicle.tesla.model3'))
     # print(blueprint_library.filter('vehicle.tesla.*'))
 
+    ######################################
+    # Global planning, spawn location and destrination
+    ######################################
+
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
-    spawn_point = random.choice(world.get_map().get_spawn_points())
+    spawn_point = random.choice(map.get_spawn_points())
     # spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
     # This is the player
     # vehicle = world.try_spawn_actor(bp, spawn_point)
     vehicle = world.spawn_actor(bp, spawn_point)
 
-    destination_point = random.choice(world.get_map().get_spawn_points())
+    destination_point = random.choice(map.get_spawn_points())
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
 
     sampling_resolution = 2.0
@@ -112,6 +118,11 @@ def main():
     # The carla.Waypoint class contains a carla.Transform object
     # The transform object contains a location and a rotation
     route_trace = global_route_plannner.trace_route(start_location, end_location)
+
+    ######################################
+    # Converting carla global planner output to coursera waypoints format
+    # [x, y, v]
+    ######################################
     x_points = []
     y_points = []
     # waypoints will be of the form
@@ -119,6 +130,11 @@ def main():
     # To initialize this, the v column will be set to 10
     # The velocity profile generator will update v later
     waypoints = []
+
+    min_x = float('Inf')
+    min_y = float('Inf')
+    max_x = 0
+    max_y = 0
     for i in range(len(route_trace)):
         # print(route_trace[i])
         x = route_trace[i][0].transform.location.x
@@ -127,16 +143,24 @@ def main():
             prev_x = route_trace[i-1][0].transform.location.x
             prev_y = route_trace[i-1][0].transform.location.y
             dist = np.sqrt((x - prev_x)**2 + (y - prev_y)**2)
-            # compare = (route_trace[i][0].transform.location == route_trace[i-1][0].transform.location)
-            # if compare == False:
-            if dist >= 0.25:
-                waypoints.append([x, y, 5])
-                x_points.append(x)
-                y_points.append(y)
         else:
+            dist = 1 # random number to allow appending to array
+        # compare = (route_trace[i][0].transform.location == route_trace[i-1][0].transform.location)
+        # if compare == False:
+        if dist >= 0.25:
             waypoints.append([x, y, 5])
             x_points.append(x)
             y_points.append(y)
+
+            if x > max_x:
+                max_x = x
+            if x < min_x:
+                min_x = x
+
+            if y > max_y:
+                max_y = y
+            if y < min_y:
+                min_y = y
 
     vehicle_transform = vehicle.get_transform()
     start_x = vehicle_transform.location.x
@@ -227,6 +251,30 @@ def main():
                     vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
     sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
+    
+    
+    ################################
+    # Handle traffic lights
+    ################################
+
+    # Get a list of traffic lights located within the route area
+    all_lights = world.get_actors().filter("*traffic_light*")
+    lights_list = []
+    lights_map = {}
+
+    for light in all_lights:
+        trigger_location = get_trafficlight_trigger_location(light)
+        if (min_x < trigger_location.x < max_x) and (min_y < trigger_location.y < max_y):
+            lights_list.append(light)
+
+            if not light.id in lights_map:
+                lights_map[light.id] = map.get_waypoint(trigger_location)
+
+    # Add trafic lights
+    for light_id in lights_map:
+        trajectory_fig.add_graph("traffic_light"+str(light_id), window_size=1,
+                                marker="H", markertext="Traffic light", marker_text_offset=1,
+                                x0=None, y0=None, color="g")
 
     
     ################################
@@ -244,9 +292,14 @@ def main():
                                     A_MAX,
                                     SLOW_SPEED,
                                     STOP_LINE_BUFFER)
+    
+    
     bp = behavioural_planner.BehaviouralPlanner(BP_LOOKAHEAD_BASE,
-                                                [],#stopsign_fences,
-                                                LEAD_VEHICLE_LOOKAHEAD)
+                                                lights_list,
+                                                TRAFFIC_LIGHT_LOOKAHEAD,
+                                                LEAD_VEHICLE_LOOKAHEAD,
+                                                map)
+    bp._lights_map = lights_map
     
     controller = controller2d.Controller2D(waypoints)
     
@@ -332,7 +385,7 @@ def main():
             # lead_car_state = [lead_car_pos[1][0], lead_car_pos[1][1], lead_car_speed[1]]
             # TODO update to actually check for lead cars
             lead_car_state = [0, 0, 0]
-            decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP
+            decelerate_to_stop = ((bp._state == behavioural_planner.DECELERATE_TO_STOP) or (bp._state == behavioural_planner.DECELERATE_TO_LIGHT))
             local_waypoints = lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, decelerate_to_stop, lead_car_state, bp._follow_lead_vehicle)
 
             # Planning is finished, but need to intepolate waypoints
@@ -438,6 +491,39 @@ def main():
                     wp_interp_np[path_indices.astype(int), 0],
                     wp_interp_np[path_indices.astype(int), 1],
                     new_colour=[1, 0.5, 0.0])
+            
+            for light in lights_list:
+                loc = lights_map[light.id].transform.location
+                x = loc.x
+                y = loc.y
+
+                if light.state == carla.TrafficLightState.Green:
+                    colour = 'g'
+                elif light.state == carla.TrafficLightState.Yellow:
+                    colour = 'y'
+                elif light.state == carla.TrafficLightState.Red:
+                    colour = 'r'
+
+                trajectory_fig.update("traffic_light"+str(light.id), [x], [y], colour)
+
+        if bp._previous_traffic_light:
+            selection_colour = 'k'
+            if bp._previous_traffic_light.state == carla.TrafficLightState.Green:
+                # print("green")
+                colour = "g"
+            elif bp._previous_traffic_light.state == carla.TrafficLightState.Yellow:
+                # print("yellow")
+                colour = "y"
+            elif bp._previous_traffic_light.state == carla.TrafficLightState.Red:
+                # print("red")
+                colour = "r"
+            if frame % LP_FREQUENCY_DIVISOR == 0:
+                # trick to toogle colour
+                print(bp._state)
+                colour = selection_colour
+            loc = lights_map[bp._previous_traffic_light.id].transform.location
+            trajectory_fig.update("traffic_light"+str(bp._previous_traffic_light.id), [loc.x], [loc.y], colour)
+            
         
         lp_traj.refresh()
         lp_1d.refresh()

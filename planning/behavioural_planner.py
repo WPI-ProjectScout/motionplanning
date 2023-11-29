@@ -9,26 +9,35 @@
 
 import numpy as np
 import math
+from agents.tools.misc import get_trafficlight_trigger_location
+import carla
 
 # State machine states
 FOLLOW_LANE = 0
 DECELERATE_TO_STOP = 1
 STAY_STOPPED = 2
+DECELERATE_TO_LIGHT = 3
+STAY_STOPPED_UNTIL_GREEN = 4
 # Stop speed threshold
 STOP_THRESHOLD = 0.02
 # Number of cycles before moving from stop sign.
 STOP_COUNTS = 10
 
 class BehaviouralPlanner:
-    def __init__(self, lookahead, stopsign_fences, lead_vehicle_lookahead):
+    def __init__(self, lookahead, lights_list, traffic_light_lookahead, lead_vehicle_lookahead, map):
         self._lookahead                     = lookahead
-        self._stopsign_fences               = stopsign_fences
+        self._stopsign_fences               = []
+        self._previous_traffic_light        = None
+        self._lights_list                   = lights_list
+        self._lights_map                    = {}
+        self._traffic_light_lookahead       = traffic_light_lookahead
         self._follow_lead_vehicle_lookahead = lead_vehicle_lookahead
         self._state                         = FOLLOW_LANE
         self._follow_lead_vehicle           = False
         self._goal_state                    = [0.0, 0.0, 0.0]
         self._goal_index                    = 0
         self._stop_count                    = 0
+        self._map                           = map
 
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
@@ -97,20 +106,81 @@ class BehaviouralPlanner:
             goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
             # ------------------------------------------------------------------
 
-            # Finally, check the index set between closest_index and goal_index
+            # Check the index set between closest_index and goal_index
             # for stop signs, and compute the goal state accordingly.
             # ------------------------------------------------------------------
-            goal_index, stop_sign_found = self.check_for_stop_signs(waypoints, closest_index, goal_index)
-            self._goal_index = goal_index
-            self._goal_state = waypoints[goal_index]
+            goal_index_stop_sign, stop_sign_found = self.check_for_stop_signs(waypoints, closest_index, goal_index)
+            # ------------------------------------------------------------------
+
+            # Check the index set between closest_index and goal_index
+            # for traffic lights, and compute the goal state accordingly.
+            # ------------------------------------------------------------------
+            goal_index_traffic_light, traffic_light_found = self.check_for_traffic_lights(waypoints, closest_index, goal_index)
             # ------------------------------------------------------------------
 
             # If stop sign found, set the goal to zero speed, then transition to 
             # the deceleration state.
             # ------------------------------------------------------------------
-            if stop_sign_found:
+            if stop_sign_found and not traffic_light_found:
+                self._goal_index = goal_index_stop_sign
+                self._goal_state = waypoints[goal_index_stop_sign]
                 self._goal_state[2] = 0
                 self._state = DECELERATE_TO_STOP
+            # ------------------------------------------------------------------
+
+            # If traffic light found, set the goal to zero speed, then transition to 
+            # the deceleration state.
+            # ------------------------------------------------------------------
+            elif not stop_sign_found and traffic_light_found:
+                self._goal_index = goal_index_traffic_light
+                self._goal_state = waypoints[goal_index_traffic_light]
+                self._goal_state[2] = 0
+                self._state = DECELERATE_TO_LIGHT
+            # ------------------------------------------------------------------
+
+            # If both stop sign and traffic light found, set the goal to zero speed, then transition to 
+            # the deceleration state. Choose the closest goal index
+            # ------------------------------------------------------------------
+            elif stop_sign_found and traffic_light_found:
+                # If stop sign is closer, follow behavior for stop sign
+                if goal_index_stop_sign <= goal_index_traffic_light:
+                    self._goal_index = goal_index_stop_sign
+                    self._goal_state = waypoints[goal_index_stop_sign]
+                    self._state = DECELERATE_TO_STOP
+                else:
+                    self._goal_index = goal_index_traffic_light
+                    self._goal_state = waypoints[goal_index_traffic_light]
+                    self._state = DECELERATE_TO_LIGHT
+                self._goal_state[2] = 0
+            # ------------------------------------------------------------------
+
+            # No traffic sign or lights were found
+            # ------------------------------------------------------------------
+            else:
+                self._goal_index = goal_index
+                self._goal_state = waypoints[goal_index]
+
+            pass
+
+        # In this state, check if we have reached a complete stop. Use the
+        # closed loop speed to do so, to ensure we are actually at a complete
+        # stop, and compare to STOP_THRESHOLD.  If so, transition to the next
+        # state.
+        elif self._state == DECELERATE_TO_LIGHT:
+            
+            # Check if the traffic light has already changed to green
+            # or stay on this state until decelerated to full stop
+            # Then proceed to state to wait for green light
+            # ------------------------------------------------------------------
+
+            # Check if the previous light is still on red
+            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
+
+            # If fully stopped and still onf read, proceed to wait only
+            if closed_loop_speed <= STOP_THRESHOLD and traffic_light_found:
+                self._state = STAY_STOPPED_UNTIL_GREEN
+            elif not traffic_light_found:
+                self._state = FOLLOW_LANE
             # ------------------------------------------------------------------
 
             pass
@@ -125,7 +195,11 @@ class BehaviouralPlanner:
                 self._state = STAY_STOPPED
             # ------------------------------------------------------------------
 
-            pass
+            # if self._state == DECELERATE_TO_STOP:
+            #     print("DECELERATE_TO_STOP")
+            # elif self._state == STAY_STOPPED:
+            #     print("STAY_STOPPED")
+            # pass
 
         # In this state, check to see if we have stayed stopped for at
         # least STOP_COUNTS number of cycles. If so, we can now leave
@@ -137,6 +211,7 @@ class BehaviouralPlanner:
             # You should use the get_closest_index(), get_goal_index(), and 
             # check_for_stop_signs() helper functions.
             if self._stop_count == STOP_COUNTS:
+                # print("About to exit stop")
                 # --------------------------------------------------------------
                 closest_len, closest_index = get_closest_index(waypoints, ego_state)
                 goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
@@ -167,6 +242,26 @@ class BehaviouralPlanner:
                 # --------------------------------------------------------------
 
                 pass
+        # In this state, check to see if we have stayed stopped for at
+        # least STOP_COUNTS number of cycles. If so, we can now leave
+        # the stop sign and transition to the next state.
+        elif self._state == STAY_STOPPED_UNTIL_GREEN:
+
+            # Check if last traffic light is green now
+            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
+            if not traffic_light_found:
+
+                # --------------------------------------------------------------
+                # Exit of stopped state if ready to move on after green light
+                closest_len, closest_index = get_closest_index(waypoints, ego_state)
+                goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
+                self._goal_index = goal_index
+                self._goal_state = waypoints[goal_index] 
+                self._state = FOLLOW_LANE
+                # --------------------------------------------------------------
+
+            pass
+
         else:
             raise ValueError('Invalid state value.')
 
@@ -234,6 +329,112 @@ class BehaviouralPlanner:
         # ------------------------------------------------------------------
 
         return wp_index
+
+    # Checks the given segment of the waypoint list to see if it
+    # intersects with a traffic light. If any index does, return the
+    # new goal state accordingly.
+    def check_for_traffic_lights(self, waypoints, closest_index, goal_index):
+        if self._previous_traffic_light:
+            if self._previous_traffic_light.state == carla.TrafficLightState.Green:
+                self._previous_traffic_light = None
+                return (goal_index, False)
+            else:
+                return (goal_index, True)
+
+        # Start from the goal index backwards to guarantee we get close to the traffic light
+        for i in range(closest_index, goal_index):
+
+            # Get the corresponding waypoint object
+            ego_vehicle_location = carla.Location(x=waypoints[i][0], y=waypoints[i][1])
+            ego_vehicle_waypoint = self._map.get_waypoint(ego_vehicle_location)
+
+            # Determine what the heading of the vehicle would be if following this route
+            if i == len(waypoints)-1:
+                delta_x = waypoints[i][0] - waypoints[i-1][0]
+                delta_y = waypoints[i][1] - waypoints[i-1][1]
+            else:
+                delta_x = waypoints[i+1][0] - waypoints[i][0]
+                delta_y = waypoints[i+1][1] - waypoints[i][1]
+            heading = np.arctan2(delta_y, delta_x)
+            ego_vehicle_waypoint.transform.rotation.yaw = heading
+            
+            for traffic_light in self._lights_list:
+                # Get traffic light waypoint
+                if traffic_light.id in self._lights_map:
+                    trigger_wp = self._lights_map[traffic_light.id]
+                else:
+                    trigger_location = get_trafficlight_trigger_location(traffic_light)
+                    trigger_wp = self._map.get_waypoint(trigger_location)
+                    self._lights_map[traffic_light.id] = trigger_wp
+
+                # Ignore if trafic light is green
+                if traffic_light.state == carla.TrafficLightState.Green:
+                    continue
+
+                # Ignore if light is beyond look ahead distance
+                if trigger_wp.transform.location.distance(ego_vehicle_location) > self._traffic_light_lookahead:
+                    continue
+
+                # print("Close to a traffic light, checking angles now. ID: ", traffic_light.id)
+
+                ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
+                wp_dir = trigger_wp.transform.get_forward_vector()
+                dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
+
+                # Ignore traffic light if its not facing our direction
+                if dot_ve_wp < 0:
+                    continue
+
+                # print("Dot product passed. ID: ", traffic_light.id)
+
+                target_vector = np.array([
+                    trigger_wp.transform.location.x - ego_vehicle_location.x,
+                    trigger_wp.transform.location.y - ego_vehicle_location.y
+                ])
+                norm_target = np.linalg.norm(target_vector)
+
+                is_within_range = False
+                if norm_target > self._traffic_light_lookahead:
+                    # print("norm bigger than look ahead. ID: ", traffic_light.id)
+                    is_within_range = False
+                # If the vector is too short, we can simply stop here
+                elif norm_target < 0.001:
+                    is_within_range = True
+                else:
+                    min_angle = 0
+                    max_angle = 90
+
+                    forward_vector = np.array([ve_dir.x, ve_dir.y])
+                    angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
+
+                    is_within_range = min_angle < angle < max_angle
+                    # if not is_within_range:
+                        # print("angle did not match. ID: ", traffic_light.id)
+
+                if is_within_range:
+                    # print("Detected ID: ", traffic_light.id)
+                    self._previous_traffic_light = traffic_light
+                    break
+                    # print("light location: ", trigger_wp.transform.location, " goal waypoint: ", waypoints[i])
+                    
+                    # return i, True
+            
+            
+            # If we have assinged a trafiic light it means we found which one is afecting us
+            if self._previous_traffic_light:
+                break
+        
+        if self._previous_traffic_light:
+            # Lets find the closest index to the traffic light location
+            traffic_light_wp = self._lights_map[self._previous_traffic_light.id]
+            traffic_light_state = [traffic_light_wp.transform.location.x, traffic_light_wp.transform.location.y, 0, 0]
+            closest_dist, closest_index = get_closest_index(waypoints, traffic_light_state)
+
+            print("light location: ", traffic_light_wp.transform.location, " goal waypoint: ", waypoints[closest_index], " and dist: ", closest_dist)
+            return closest_index, True
+
+        # By default return the original goal index and a False flag
+        return goal_index, False
 
     # Checks the given segment of the waypoint list to see if it
     # intersects with a stop line. If any index does, return the
