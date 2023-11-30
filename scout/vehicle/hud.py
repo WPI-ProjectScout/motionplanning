@@ -17,13 +17,11 @@ class HUD(object):
 
     def __init__(self, width, height):
         """Constructor method"""
+        pygame.init()
+        pygame.font.init()
         self.dim = (width, height)
-<<<<<<< HEAD
-        font = pygame.font.Font(pygame.font.get_default_font(), 40)
-=======
         
         font = pygame.font.Font(pygame.font.get_default_font(), 20)
->>>>>>> 8d2331f... change font size to fit in window
         font_name = 'courier' if os.name == 'nt' else 'mono'
         fonts = [x for x in pygame.font.get_fonts() if font_name in x]
         default_font = 'ubuntumono'
@@ -58,10 +56,10 @@ class HUD(object):
         heading += 'S' if abs(transform.rotation.yaw) > 90.5 else ''
         heading += 'E' if 179.5 > transform.rotation.yaw > 0.5 else ''
         heading += 'W' if -0.5 > transform.rotation.yaw > -179.5 else ''
-        colhist = world.collision_sensor.get_collision_history()
-        collision = [colhist[x + self.frame - 200] for x in range(0, 200)]
-        max_col = max(1.0, max(collision))
-        collision = [x / max_col for x in collision]
+        # colhist = world.collision_sensor.get_collision_history()
+        # collision = [colhist[x + self.frame - 200] for x in range(0, 200)]
+        # max_col = max(1.0, max(collision))
+        # collision = [x / max_col for x in collision]
         vehicles = world.world.get_actors().filter('vehicle.*')
 
         #New Destination info feature
@@ -125,26 +123,26 @@ class HUD(object):
             self._info_text += [
                 ('Speed:', control.speed, 0.0, 5.556),
                 ('Jump:', control.jump)]
-        self._info_text += [
-            '',
-            'Collision:',
-            collision,
-            '',
-            'Number of vehicles: % 8d' % len(vehicles)]
+        # self._info_text += [
+        #     '',
+        #     'Collision:',
+        #     collision,
+        #     '',
+        #     'Number of vehicles: % 8d' % len(vehicles)]
 
-        if len(vehicles) > 1:
-            self._info_text += ['Nearby vehicles:']
+        # if len(vehicles) > 1:
+        #     self._info_text += ['Nearby vehicles:']
 
-        def dist(l):
-            return math.sqrt((l.x - transform.location.x)**2 + (l.y - transform.location.y)
-                             ** 2 + (l.z - transform.location.z)**2)
-        vehicles = [(dist(x.get_location()), x) for x in vehicles if x.id != world.player.id]
+        # def dist(l):
+        #     return math.sqrt((l.x - transform.location.x)**2 + (l.y - transform.location.y)
+        #                      ** 2 + (l.z - transform.location.z)**2)
+        # vehicles = [(dist(x.get_location()), x) for x in vehicles if x.id != world.player.id]
 
-        for dist, vehicle in sorted(vehicles):
-            if dist > 200.0:
-                break
-            vehicle_type = hd.get_actor_display_name(vehicle, truncate=22)
-            self._info_text.append('% 4dm %s' % (dist, vehicle_type))
+        # for dist, vehicle in sorted(vehicles):
+        #     if dist > 200.0:
+        #         break
+        #     vehicle_type = hd.get_actor_display_name(vehicle, truncate=22)
+        #     self._info_text.append('% 4dm %s' % (dist, vehicle_type))
 
     def toggle_info(self):
         """Toggle info on or off"""
