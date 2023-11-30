@@ -12,12 +12,8 @@ from agents.tools.misc import get_speed, get_trafficlight_trigger_location
 from planning.global_route_planner import GlobalRoutePlanner
 import vehicle.displaymanager as dm
 import vehicle.sensormanager as sm
-
-from vehicle.hud import HUD, get_actor_display_name
+from vehicle.hud import HUD
 from vehicle.world import World
-from scout.vehicle.collision_sensor import CollisionSensor
-from scout.vehicle.gnss_sensor import GnssSensor
-from scout.vehicle.camera_manager import CameraManager
 
 # Planning Constants
 NUM_PATHS = 7

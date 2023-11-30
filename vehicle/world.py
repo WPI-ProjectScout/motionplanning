@@ -10,10 +10,10 @@ import numpy.random as random
 import re
 import sys
 import weakref
-import scout.vehicle.helper_display as hd
-from scout.vehicle.collision_sensor import CollisionSensor
-from scout.vehicle.gnss_sensor import GnssSensor
-from scout.vehicle.camera_manager import CameraManager
+import helpers.helper_display as hd
+from vehicle.collision_sensor import CollisionSensor
+from vehicle.gnss_sensor import GnssSensor
+from vehicle.camera_manager import CameraManager
 
 class World(object):
     """ Class representing the surrounding environment """

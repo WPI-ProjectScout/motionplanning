@@ -2,9 +2,9 @@ import pygame
 import carla
 import math
 import os
-from scout.vehicle.fading_text import FadingText
-from scout.vehicle.help_text import HelpText
-import scout.vehicle.helper_display as hd
+from helpers.fading_text import FadingText
+from helpers.help_text import HelpText
+import helpers.helper_display as hd
 import datetime
 
 def get_actor_display_name(actor, truncate=250):
