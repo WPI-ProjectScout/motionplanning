@@ -13,6 +13,12 @@ from planning.global_route_planner import GlobalRoutePlanner
 import vehicle.displaymanager as dm
 import vehicle.sensormanager as sm
 
+from vehicle.hud import HUD, get_actor_display_name
+from vehicle.world import World
+from scout.vehicle.collision_sensor import CollisionSensor
+from scout.vehicle.gnss_sensor import GnssSensor
+from scout.vehicle.camera_manager import CameraManager
+
 # Planning Constants
 NUM_PATHS = 7
 BP_LOOKAHEAD_BASE      = 8.0              # m
@@ -80,15 +86,16 @@ def main():
     traffic_manager = client.get_trafficmanager()
     traffic_manager.set_synchronous_mode(True)
 
-    world = client.get_world()
-    map = world.get_map()
+    # HUD and world objects
+    hud = HUD(400, 400)
+    sim_world = World(client.get_world(), hud, None)
 
-    settings = world.get_settings()
+    settings = sim_world.world.get_settings()
     settings.synchronous_mode = True
     settings.fixed_delta_seconds = 0.05
-    world.apply_settings(settings)
+    sim_world.world.apply_settings(settings)
 
-    blueprint_library = world.get_blueprint_library()
+    blueprint_library = sim_world.world.get_blueprint_library()
     bp = random.choice(blueprint_library.filter('vehicle.tesla.model3'))
     # print(blueprint_library.filter('vehicle.tesla.*'))
 
@@ -99,21 +106,22 @@ def main():
     # TODO add logi to retry find a rout between random start and end destination
 
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
-    spawn_point = random.choice(map.get_spawn_points())
+    spawn_point = random.choice(sim_world.map.get_spawn_points())
     # spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
     # This is the player
     # vehicle = world.try_spawn_actor(bp, spawn_point)
-    vehicle = world.spawn_actor(bp, spawn_point)
+    vehicle = sim_world.world.spawn_actor(bp, spawn_point)
+    sim_world.simple_restart(vehicle)
     # vehicle.set_simulate_physics(False)
 
-    destination_point = random.choice(map.get_spawn_points())
+    destination_point = random.choice(sim_world.map.get_spawn_points())
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
 
     sampling_resolution = 2.0
-    global_route_plannner = GlobalRoutePlanner(map, sampling_resolution)
+    global_route_plannner = GlobalRoutePlanner(sim_world.map, sampling_resolution)
 
-    start_waypoint = map.get_waypoint(spawn_point.location)
-    end_waypoint = map.get_waypoint(destination_point.location)
+    start_waypoint = sim_world.map.get_waypoint(spawn_point.location)
+    end_waypoint = sim_world.map.get_waypoint(destination_point.location)
 
     start_location = start_waypoint.transform.location
     print("Start location: ", start_location)
@@ -239,12 +247,11 @@ def main():
                             label="yaw_reference", 
                             window_size=300)
     
-
     ################################
     # Display manager handling
     ################################
 
-    width, height=800,600
+    width, height=1200,800
     # Load display
     display_manager = None
     # Display Manager organize all the sensors an its display in a window
@@ -253,18 +260,18 @@ def main():
 
     # Then, SensorManager can be used to spawn RGBCamera, LiDARs and SemanticLiDARs as needed
     # and assign each of them to a grid position, 
-    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
+    sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
                     vehicle, {}, display_pos=[0, 0])
-    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
+    sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
                     vehicle, {}, display_pos=[0, 1])
-    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
+    sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
                     vehicle, {}, display_pos=[0, 2])
-    sm.SensorManager(world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
+    sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
                     vehicle, {}, display_pos=[1, 1])
 
-    sm.SensorManager(world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+    sm.SensorManager(sim_world.world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
-    sm.SensorManager(world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+    sm.SensorManager(sim_world.world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
     
     
@@ -273,7 +280,7 @@ def main():
     ################################
 
     # Get a list of traffic lights located within the route area
-    all_lights = world.get_actors().filter("*traffic_light*")
+    all_lights = sim_world.world.get_actors().filter("*traffic_light*")
     lights_list = []
     lights_map = {}
 
@@ -283,7 +290,7 @@ def main():
             lights_list.append(light)
 
             if not light.id in lights_map:
-                lights_map[light.id] = map.get_waypoint(trigger_location)
+                lights_map[light.id] = sim_world.map.get_waypoint(trigger_location)
 
     # Add trafic lights
     for light_id in lights_map:
@@ -313,7 +320,7 @@ def main():
                                                 lights_list,
                                                 TRAFFIC_LIGHT_LOOKAHEAD,
                                                 LEAD_VEHICLE_LOOKAHEAD,
-                                                map)
+                                                sim_world.map)
     bp._lights_map = lights_map
     
     controller = controller2d.Controller2D(waypoints)
@@ -334,7 +341,7 @@ def main():
     frame = 0
     prev_bp_state = bp._state
     while True:
-        world.tick()
+        sim_world.world.tick()
         clock.tick()
         frame += 1
 
@@ -554,6 +561,9 @@ def main():
 
         # Render received data
         display_manager.render()
+        sim_world.tick(clock)
+        sim_world.render(display_manager.display)
+        pygame.display.flip()
 
         # Find if reached the end of waypoint. If the car is within
         # DIST_THRESHOLD_TO_LAST_WAYPOINT to the last waypoint,
