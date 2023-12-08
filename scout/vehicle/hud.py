@@ -33,6 +33,7 @@ class HUD(object):
         self.server_fps = 0
         self.frame = 0
         self.simulation_time = 0
+        self.distance_to_goal = 0
         self._show_info = True
         self._info_text = []
         self._server_clock = pygame.time.Clock()
@@ -61,6 +62,18 @@ class HUD(object):
         # max_col = max(1.0, max(collision))
         # collision = [x / max_col for x in collision]
         vehicles = world.world.get_actors().filter('vehicle.*')
+
+        # Calculate distance to goal (replace these coordinates with your actual goal coordinates)
+        current_goal_location = world.get_moving_goal_location()
+        distance_to_goal = self.calculate_distance_to_goal(transform.location, current_goal_location)
+
+        # Update self.distance_to_goal for later use (if needed)
+        self.distance_to_goal = distance_to_goal
+
+        # Update the _info_text list
+        self._info_text += [
+        'Distance to Goal: % 10.2f m' % distance_to_goal,
+        ]
 
         #New Destination info feature
 
@@ -143,7 +156,12 @@ class HUD(object):
         #         break
         #     vehicle_type = hd.get_actor_display_name(vehicle, truncate=22)
         #     self._info_text.append('% 4dm %s' % (dist, vehicle_type))
-
+    def calculate_distance_to_goal(self, current_location, goal_location):
+        """Calculate the distance between current location and goal location."""
+        return math.sqrt((goal_location.x - current_location.x)**2 +
+                        (goal_location.y - current_location.y)**2 +
+                        (goal_location.z - current_location.z)**2)
+    
     def toggle_info(self):
         """Toggle info on or off"""
         self._show_info = not self._show_info
