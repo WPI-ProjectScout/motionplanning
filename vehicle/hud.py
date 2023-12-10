@@ -41,6 +41,7 @@ class HUD(object):
         self._show_info = True
         self._info_text = []
         self._server_clock = pygame.time.Clock()
+        self.goal_location = None
 
     def on_world_tick(self, timestamp):
         """Gets informations from the world at every tick"""
@@ -66,6 +67,13 @@ class HUD(object):
         # max_col = max(1.0, max(collision))
         # collision = [x / max_col for x in collision]
         vehicles = world.world.get_actors().filter('vehicle.*')
+
+
+        # Calculate distance to goal (replace these coordinates with your actual goal coordinates)
+        distance_to_goal = self.calculate_distance_to_goal(transform.location, self.goal_location)
+
+        # Update self.distance_to_goal for later use (if needed)
+        self.distance_to_goal = distance_to_goal
 
         #New Destination info feature
 
@@ -128,6 +136,12 @@ class HUD(object):
             self._info_text += [
                 ('Speed:', control.speed, 0.0, 5.556),
                 ('Jump:', control.jump)]
+            
+        # Update the _info_text list
+        self._info_text += [
+        'Distance to Goal: % 10.2f m' % distance_to_goal,
+        ]
+
         # self._info_text += [
         #     '',
         #     'Collision:',
@@ -149,6 +163,12 @@ class HUD(object):
         #     vehicle_type = hd.get_actor_display_name(vehicle, truncate=22)
         #     self._info_text.append('% 4dm %s' % (dist, vehicle_type))
 
+    def calculate_distance_to_goal(self, current_location, goal_location):
+        """Calculate the distance between current location and goal location."""
+        return math.sqrt((goal_location.x - current_location.x)**2 +
+                        (goal_location.y - current_location.y)**2 +
+                        (goal_location.z - current_location.z)**2)
+    
     def toggle_info(self):
         """Toggle info on or off"""
         self._show_info = not self._show_info

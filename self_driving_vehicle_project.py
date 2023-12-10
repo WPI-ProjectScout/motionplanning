@@ -122,6 +122,7 @@ def main():
     start_location = start_waypoint.transform.location
     print("Start location: ", start_location)
     end_location = end_waypoint.transform.location
+    hud.goal_location = end_location
     print("End location: ", end_location)
     # Returns list of (carla.Waypoint, RoadOption)
     # The carla.Waypoint class contains a carla.Transform object
@@ -256,19 +257,20 @@ def main():
 
     # Then, SensorManager can be used to spawn RGBCamera, LiDARs and SemanticLiDARs as needed
     # and assign each of them to a grid position, 
+    sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=-5.0, y=1.0, z=2.5), carla.Rotation(pitch=-15)), 
+                    vehicle, {}, display_pos=[1, 2])
     sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=-90)), 
-                    vehicle, {}, display_pos=[0, 0])
+                   vehicle, {}, display_pos=[0, 0])
     sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+00)), 
                     vehicle, {}, display_pos=[0, 1])
     sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=+90)), 
                     vehicle, {}, display_pos=[0, 2])
     sm.SensorManager(sim_world.world, display_manager, 'RGBCamera', carla.Transform(carla.Location(x=0, z=2.4), carla.Rotation(yaw=180)), 
                     vehicle, {}, display_pos=[1, 1])
-
     sm.SensorManager(sim_world.world, display_manager, 'LiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
                     vehicle, {'channels' : '64', 'range' : '100',  'points_per_second': '250000', 'rotation_frequency': '20'}, display_pos=[1, 0])
-    sm.SensorManager(sim_world.world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
-                    vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
+#    sm.SensorManager(sim_world.world, display_manager, 'SemanticLiDAR', carla.Transform(carla.Location(x=0, z=2.4)), 
+#                    vehicle, {'channels' : '64', 'range' : '100', 'points_per_second': '100000', 'rotation_frequency': '20'}, display_pos=[1, 2])
     
     
     ################################
