@@ -117,7 +117,7 @@ class BehaviouralPlanner:
             # ------------------------------------------------------------------
             goal_index_traffic_light, traffic_light_found = self.check_for_traffic_lights(waypoints, closest_index, goal_index)
             # ------------------------------------------------------------------
-
+            print("FollowLane, traffic_light_found:",traffic_light_found)
             # If stop sign found, set the goal to zero speed, then transition to 
             # the deceleration state.
             # ------------------------------------------------------------------
@@ -175,7 +175,8 @@ class BehaviouralPlanner:
 
             # Check if the previous light is still on red
             _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
-
+            print("traffic_light_found:",traffic_light_found)
+            print("closed_loop_speed:",closed_loop_speed)
             # If fully stopped and still onf read, proceed to wait only
             if closed_loop_speed <= STOP_THRESHOLD and traffic_light_found:
                 self._state = STAY_STOPPED_UNTIL_GREEN
@@ -242,6 +243,7 @@ class BehaviouralPlanner:
 
             # Check if last traffic light is green now
             _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
+            print("traffic_light_found",traffic_light_found)
             if not traffic_light_found:
 
                 # --------------------------------------------------------------
@@ -335,7 +337,7 @@ class BehaviouralPlanner:
                 return (goal_index, True)
 
         # Start from the goal index backwards to guarantee we get close to the traffic light
-        for i in range(closest_index, goal_index):
+        for i in range(closest_index, len(waypoints)-2):
 
             # Get the corresponding waypoint object
             ego_vehicle_location = carla.Location(x=waypoints[i][0], y=waypoints[i][1])
@@ -365,10 +367,10 @@ class BehaviouralPlanner:
                     continue
 
                 # Ignore if light is beyond look ahead distance
-                if trigger_wp.transform.location.distance(ego_vehicle_location) > self._traffic_light_lookahead:
+                if trigger_wp.transform.location.distance(ego_vehicle_location) > self._traffic_light_lookahead*2:
                     continue
 
-                # print("Close to a traffic light, checking angles now. ID: ", traffic_light.id)
+                print("Close to a traffic light, checking angles now. ID: ", traffic_light.id)
 
                 ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
                 wp_dir = trigger_wp.transform.get_forward_vector()
@@ -378,7 +380,7 @@ class BehaviouralPlanner:
                 if dot_ve_wp < 0:
                     continue
 
-                # print("Dot product passed. ID: ", traffic_light.id)
+                print("Dot product passed. ID: ", traffic_light.id)
 
                 target_vector = np.array([
                     trigger_wp.transform.location.x - ego_vehicle_location.x,
@@ -388,7 +390,7 @@ class BehaviouralPlanner:
 
                 is_within_range = False
                 if norm_target > self._traffic_light_lookahead:
-                    # print("norm bigger than look ahead. ID: ", traffic_light.id)
+                    print("norm bigger than look ahead. ID: ", traffic_light.id)
                     is_within_range = False
                 # If the vector is too short, we can simply stop here
                 elif norm_target < 0.001:
@@ -405,11 +407,10 @@ class BehaviouralPlanner:
                         # print("angle did not match. ID: ", traffic_light.id)
 
                 if is_within_range:
-                    # print("Detected ID: ", traffic_light.id)
+                    print("Detected ID: ", traffic_light.id)
                     self._previous_traffic_light = traffic_light
+                    print("light location: ", trigger_wp.transform.location, " goal waypoint: ", waypoints[i])
                     break
-                    # print("light location: ", trigger_wp.transform.location, " goal waypoint: ", waypoints[i])
-                    
                     # return i, True
             
             

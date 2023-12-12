@@ -113,14 +113,20 @@ class Controller2D(object):
         steer_output    = 0
         brake_output    = 0
 
-        self.vars.create_var('kp', 0.50)
+        # self.vars.create_var('kp', 0.50)
+        # self.vars.create_var('kp', 0.75)
+        # self.vars.create_var('kp', 0.75)
+        self.vars.create_var('kp', 0.5)
         self.vars.create_var('ki', 0.30)
         self.vars.create_var('integrator_min', 0.0)
         self.vars.create_var('integrator_max', 10.0)
         self.vars.create_var('kd', 0.13)
         # self.vars.create_var('kp_heading', 38.00)
-        self.vars.create_var('kp_heading', 50.00)
         # self.vars.create_var('kp_heading', 90.00)
+        # self.vars.create_var('kp_heading', 50.00)
+        # self.vars.create_var('kp_heading', .10)
+        self.vars.create_var('kp_heading', 15)
+        
         self.vars.create_var('k_speed_crosstrack', 0.0)
         self.vars.create_var('cross_track_deadband', 0.01)
         self.vars.create_var('x_prev', 0.0)

@@ -16,10 +16,11 @@ from vehicle.hud import HUD
 from vehicle.world import World
 
 # Planning Constants
-NUM_PATHS = 7
-BP_LOOKAHEAD_BASE      = 8.0              # m
-BP_LOOKAHEAD_TIME      = 2.0              # s
+NUM_PATHS = 3
+BP_LOOKAHEAD_BASE      = 2.0              # m
+BP_LOOKAHEAD_TIME      = .25              # s
 PATH_OFFSET            = 1.5              # m
+PATH_OFFSET            = 0.5              # m
 CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
 CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
 TIME_GAP               = 1.0              # s
@@ -35,7 +36,7 @@ LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the
                                           # frequency). Must be a natural
                                           # number.
 
-TRAFFIC_LIGHT_LOOKAHEAD = 20
+TRAFFIC_LIGHT_LOOKAHEAD = 8
 
 TARGET_VELOCITY_WAYPOINTS = 8
 
@@ -78,9 +79,14 @@ def prepare_control_command(throttle, steer, brake,
 def main():
     client = carla.Client('localhost', 2000)
     client.set_timeout(60)
+    world = client.load_world('Town01_Opt', carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
+    original_settings = world.get_settings()
+    world.unload_map_layer(carla.MapLayer.Buildings)
+    world.unload_map_layer(carla.MapLayer.ParkedVehicles)
+    world.unload_map_layer(carla.MapLayer.Foliage)
 
-    traffic_manager = client.get_trafficmanager()
-    traffic_manager.set_synchronous_mode(True)
+    # traffic_manager = client.get_trafficmanager()
+    # traffic_manager.set_synchronous_mode(True)
 
     # HUD and world objects
     hud = HUD(400, 400)
@@ -102,8 +108,11 @@ def main():
     # TODO add logi to retry find a rout between random start and end destination
 
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
+    s_points = sim_world.map.get_spawn_points()
     spawn_point = random.choice(sim_world.map.get_spawn_points())
-    # spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
+    spawn_point = carla.Transform(carla.Location(x=-48.67435073852539, y=-46.95527267456055, z=0.5999999642372131), 
+                                  carla.Rotation(yaw=89.83876037597656))
+    spawn_point=s_points[5]
     # This is the player
     # vehicle = world.try_spawn_actor(bp, spawn_point)
     vehicle = sim_world.world.spawn_actor(bp, spawn_point)
@@ -111,9 +120,10 @@ def main():
     # vehicle.set_simulate_physics(False)
 
     destination_point = random.choice(sim_world.map.get_spawn_points())
-    # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
-
-    sampling_resolution = 2.0
+    destination_point = carla.Transform(carla.Location(x=-71.26968383789062, y=132.3148956298828, z=0.5999999642372131),
+                                        carla.Rotation(yaw=-167.12705993652344))
+    destination_point=s_points[10]
+    sampling_resolution = 1.0
     global_route_plannner = GlobalRoutePlanner(sim_world.map, sampling_resolution)
 
     start_waypoint = sim_world.map.get_waypoint(spawn_point.location)
@@ -145,7 +155,7 @@ def main():
     max_x = 0
     max_y = 0
     for i in range(len(route_trace)):
-        # print(route_trace[i])
+        print(route_trace[i])
         x = route_trace[i][0].transform.location.x
         y = route_trace[i][0].transform.location.y
         if i > 0:
@@ -177,7 +187,7 @@ def main():
     start_yaw = math.radians(vehicle_transform.rotation.yaw)
 
     ######################################
-    # Calling live plotter
+    # Calling live plotterk_speed_crosstrack
     ######################################
     
     # The main objects to refresh plotting
@@ -226,7 +236,7 @@ def main():
     ######################################
     # Add 1D control plots
     ######################################
-
+    destination_point=s_points[10]
     forward_speed_fig = lp_1d.plot_new_dynamic_figure(title="Forward Speed (m/s)")
     forward_speed_fig.add_graph("forward_speed", 
                                 label="forward_speed", 

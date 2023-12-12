@@ -12,7 +12,9 @@ import scipy.optimize
 import scipy.integrate
 from math import sin, cos, pi, sqrt
 
-MINIMUM_TURNING_RADIUS = 2.0 # m
+MINIMUM_TURNING_RADIUS = 5.0 # m
+# MINIMUM_TURNING_RADIUS = 0.25 # m
+# MINIMUM_TURNING_RADIUS = 2.0 # m
 # MINIMUM_TURNING_RADIUS = 5 #m
 # MINIMUM_TURNING_RADIUS = 10 #m
 
