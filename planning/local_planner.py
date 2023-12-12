@@ -28,6 +28,7 @@ class LocalPlanner:
         self._velocity_planner = \
             velocity_planner.VelocityPlanner(time_gap, a_max, slow_speed, 
                                              stop_line_buffer)
+        self._prev_best_path = None
 
     # Computes the goal state set from a given goal position. This is done by
     # laterally sampling offsets from the goal location along the direction

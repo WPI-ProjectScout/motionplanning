@@ -12,11 +12,12 @@ from agents.tools.misc import get_speed, get_trafficlight_trigger_location
 from planning.global_route_planner import GlobalRoutePlanner
 import vehicle.displaymanager as dm
 import vehicle.sensormanager as sm
+import cv2
 
 # Planning Constants
 NUM_PATHS = 7
 BP_LOOKAHEAD_BASE      = 8.0              # m
-BP_LOOKAHEAD_TIME      = 2.0              # s
+BP_LOOKAHEAD_TIME      = 0.25              # s
 PATH_OFFSET            = 1.5              # m
 CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
 CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
@@ -44,6 +45,10 @@ INTERP_DISTANCE_RES       = 0.01 # distance between interpolated points
 
 DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
                                        # simulation ends
+
+pedestrian_cascade = cv2.CascadeClassifier('motionplanning/haarcascade_fullbody.xml')
+
+
 
 def prepare_control_command(throttle, steer, brake, 
                          hand_brake=False, reverse=False, manual_gear_shift=False):
@@ -73,6 +78,41 @@ def prepare_control_command(throttle, steer, brake,
     control.manual_gear_shift = manual_gear_shift
     return control
 
+
+
+def spawn_walkers(world, num_walkers=10):
+    walker_blueprint_library = world.get_blueprint_library().filter("walker.*")
+    spawn_points = world.get_map().get_spawn_points()
+    random.shuffle(spawn_points)
+
+    spawned_walkers = []
+    for i in range(num_walkers):
+        for spawn_point in spawn_points:
+            spawn_transform = carla.Transform(spawn_point.location, spawn_point.rotation)
+            walker = world.try_spawn_actor(walker_blueprint_library[i % len(walker_blueprint_library)], spawn_transform)
+            
+            if walker is not None:
+                spawned_walkers.append(walker)
+                break  # Break the inner loop and move to the next walker
+
+    return spawned_walkers
+
+def process_image(image, vehicle):
+    # Convert the image from CARLA to an array format that OpenCV can use
+    array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+    array = np.reshape(array, (image.height, image.width, 4))  # RGBA format
+    frame = array[:, :, :3]  # Use only RGB
+
+    # Detect pedestrians
+    pedestrians = pedestrian_cascade.detectMultiScale(frame, 1.1, 10)
+
+    # If pedestrians are detected, stop the car
+    if len(pedestrians) > 0:
+        print("Pedestrian detected! Stopping the car.")
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))
+    else:
+        print("No pedestrian detected.")
+
 def main():
     client = carla.Client('localhost', 2000)
     client.set_timeout(60)
@@ -80,8 +120,10 @@ def main():
     traffic_manager = client.get_trafficmanager()
     traffic_manager.set_synchronous_mode(True)
 
-    world = client.get_world()
+    world = client.load_world('Town01_Opt')
     map = world.get_map()
+
+    # spawned_walkers = spawn_walkers(world, num_walkers=40)
 
     settings = world.get_settings()
     settings.synchronous_mode = True
@@ -105,6 +147,19 @@ def main():
     # vehicle = world.try_spawn_actor(bp, spawn_point)
     vehicle = world.spawn_actor(bp, spawn_point)
     # vehicle.set_simulate_physics(False)
+
+    # Set up the camera sensor
+    camera_bp = blueprint_library.find('sensor.camera.rgb')
+    camera_bp.set_attribute('image_size_x', '800')
+    camera_bp.set_attribute('image_size_y', '600')
+    camera_bp.set_attribute('fov', '30')
+
+    # Set the relative location and orientation of the camera
+    camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+    camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+
+    camera.listen(lambda image: process_image(image, vehicle))
+
 
     destination_point = random.choice(map.get_spawn_points())
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
@@ -575,7 +630,10 @@ def main():
             break
 
     time.sleep(3)
-    
+
+    # for walker in spawned_walkers:
+    #     walker.destroy()
+    camera.destroy()
     if display_manager:
         display_manager.destroy()
     
