@@ -24,7 +24,7 @@ STOP_THRESHOLD = 0.5
 STOP_COUNTS = 10
 
 class BehaviouralPlanner:
-    def __init__(self, lookahead, lights_list, traffic_light_lookahead, lead_vehicle_lookahead, map):
+    def __init__(self, lookahead, lights_list, traffic_light_lookahead, lead_vehicle_lookahead, map, default_speed):
         self._lookahead                     = lookahead
         self._stopsign_fences               = []
         self._previous_traffic_light        = None
@@ -38,6 +38,7 @@ class BehaviouralPlanner:
         self._goal_index                    = 0
         self._stop_count                    = 0
         self._map                           = map
+        self._default_speed                 = default_speed
 
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
@@ -100,12 +101,22 @@ class BehaviouralPlanner:
             closest_len, closest_index = get_closest_index(waypoints, ego_state)
             # ------------------------------------------------------------------
 
-            # Next, find the goal index that lies within the lookahead distance
+            # Next, find the goal index that lies within the traffic lookahead distance
             # along the waypoints.
             # ------------------------------------------------------------------
+
+            # 1 store the previously set lookahead distance
+            prev_lookahead = self._lookahead
+            # 2 update the lookahead distance to use the traffic light lookahead distance
+            # self._lookahead = self._traffic_light_lookahead
+            self.set_lookahead(8 + 2 * ego_state[3])
+
+            # 3 Find the goal index based on the traffic light look ahead distance
             goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
             # ------------------------------------------------------------------
 
+            #### 4 search for stop signs and traffic lights considering the traffig light
+            #### lookahead distance
             # Check the index set between closest_index and goal_index
             # for stop signs, and compute the goal state accordingly.
             # ------------------------------------------------------------------
@@ -157,8 +168,19 @@ class BehaviouralPlanner:
             # No traffic sign or lights were found
             # ------------------------------------------------------------------
             else:
+                #### 5 If no stop signs or traffic lights were found wihin the long lookahead distance
+                #### Then look again for the goal index considering a smaller lookahead
+
+                # 6 Recover the originally set lookahead
+                self._lookahead = prev_lookahead
+
+                # 7 find the goal index that is wihtin the original (small) lookahead
+                # distance
+                goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
                 self._goal_index = goal_index
                 self._goal_state = waypoints[goal_index]
+                # print("Goal state: ", self._goal_state, " and index: ", self._goal_index)
+                self._goal_state[2] = self._default_speed
 
             pass
 
@@ -250,6 +272,7 @@ class BehaviouralPlanner:
                 goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
                 self._goal_index = goal_index
                 self._goal_state = waypoints[goal_index] 
+                # print("Goal state: ", self._goal_state, " and index: ", self._goal_index)
                 self._state = FOLLOW_LANE
                 # --------------------------------------------------------------
 
@@ -423,7 +446,7 @@ class BehaviouralPlanner:
             traffic_light_state = [traffic_light_wp.transform.location.x, traffic_light_wp.transform.location.y, 0, 0]
             closest_dist, closest_index = get_closest_index(waypoints, traffic_light_state)
 
-            print("light location: ", traffic_light_wp.transform.location, " goal waypoint: ", waypoints[closest_index], " and dist: ", closest_dist)
+            print("light location: ", traffic_light_wp.transform.location, " goal waypoint: ", waypoints[closest_index], "with index: ", closest_index, " and dist: ", closest_dist)
             return closest_index, True
 
         # By default return the original goal index and a False flag

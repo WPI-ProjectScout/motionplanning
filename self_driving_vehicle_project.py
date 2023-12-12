@@ -17,16 +17,16 @@ from vehicle.world import World
 
 # Planning Constants
 NUM_PATHS = 7
-BP_LOOKAHEAD_BASE      = 8.0              # m
-BP_LOOKAHEAD_TIME      = 2.0              # s
-PATH_OFFSET            = 1.5              # m
+BP_LOOKAHEAD_BASE      = 2.0              # m
+BP_LOOKAHEAD_TIME      = 0.25             # s
+PATH_OFFSET            = 0.5              # m
 CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
 CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
 TIME_GAP               = 1.0              # s
 PATH_SELECT_WEIGHT     = 10
 A_MAX                  = 1.5              # m/s^2
 SLOW_SPEED             = 4.0              # m/s intermediate speed when decelerating
-STOP_LINE_BUFFER       = 3.5              # m
+STOP_LINE_BUFFER       = 1.5              # m
 LEAD_VEHICLE_LOOKAHEAD = 20.0             # m
 LP_FREQUENCY_DIVISOR   = 2                # Frequency divisor to make the 
                                           # local planner operate at a lower
@@ -79,12 +79,19 @@ def main():
     client = carla.Client('localhost', 2000)
     client.set_timeout(60)
 
-    traffic_manager = client.get_trafficmanager()
-    traffic_manager.set_synchronous_mode(True)
+    # traffic_manager = client.get_trafficmanager()
+    # traffic_manager.set_synchronous_mode(True)
 
     # HUD and world objects
     hud = HUD(400, 400)
-    sim_world = World(client.get_world(), hud, None)
+    # sim_world = World(client.get_world(), hud, None)
+
+    temp_world = client.load_world('Town01_Opt', carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
+    sim_world = World(temp_world, hud, None)
+
+    # sim_world.world.unload_map_layer(carla.MapLayer.Buildings)
+    sim_world.world.unload_map_layer(carla.MapLayer.ParkedVehicles)
+    sim_world.world.unload_map_layer(carla.MapLayer.Foliage)
 
     settings = sim_world.world.get_settings()
     settings.synchronous_mode = True
@@ -102,16 +109,20 @@ def main():
     # TODO add logi to retry find a rout between random start and end destination
 
     # init_pos = carla.Transform(carla.Location(x=158.0, y=24.0, z=0.05), carla.Rotation(yaw=-90))
-    spawn_point = random.choice(sim_world.map.get_spawn_points())
+    # spawn_point = random.choice(sim_world.map.get_spawn_points())
     # spawn_point = carla.Transform(carla.Location(x=26.382587, y=-57.401386, z=0.6), carla.Rotation(yaw=-0.023438))
+    s_points = sim_world.map.get_spawn_points()
+    spawn_point=s_points[5]
+
     # This is the player
     # vehicle = world.try_spawn_actor(bp, spawn_point)
     vehicle = sim_world.world.spawn_actor(bp, spawn_point)
     sim_world.simple_restart(vehicle)
     # vehicle.set_simulate_physics(False)
 
-    destination_point = random.choice(sim_world.map.get_spawn_points())
+    # destination_point = random.choice(sim_world.map.get_spawn_points())
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
+    destination_point=s_points[10]
 
     sampling_resolution = 2.0
     global_route_plannner = GlobalRoutePlanner(sim_world.map, sampling_resolution)
@@ -171,6 +182,13 @@ def main():
                 max_y = y
             if y < min_y:
                 min_y = y
+
+    # Add some buffers
+    max_x += 10
+    max_y += 10
+
+    min_x -= 10
+    min_y -= 10
 
     vehicle_transform = vehicle.get_transform()
     start_x = vehicle_transform.location.x
@@ -318,7 +336,8 @@ def main():
                                                 lights_list,
                                                 TRAFFIC_LIGHT_LOOKAHEAD,
                                                 LEAD_VEHICLE_LOOKAHEAD,
-                                                sim_world.map)
+                                                sim_world.map,
+                                                TARGET_VELOCITY_WAYPOINTS)
     bp._lights_map = lights_map
     
     controller = controller2d.Controller2D(waypoints)
@@ -486,12 +505,21 @@ def main():
                                 current_timestamp, 
                                 controller._desired_speed)
         
+        # for printing
+        display_current_yaw = current_yaw
+        if current_yaw == -math.pi:
+            display_current_yaw = math.pi
+
+        display_desired_yaw = controller._desired_yaw
+        if controller._desired_yaw == -math.pi:
+            display_desired_yaw = math.pi
+
         yaw_fig.roll("yaw", 
                     current_timestamp, 
-                    current_yaw)
+                    display_current_yaw)
         yaw_fig.roll("yaw_reference", 
                     current_timestamp, 
-                    controller._desired_yaw)
+                    display_desired_yaw)
 
         if frame % LP_FREQUENCY_DIVISOR == 0:
             if not bp._state == prev_bp_state:
