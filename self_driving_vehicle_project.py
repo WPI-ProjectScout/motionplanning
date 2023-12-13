@@ -14,6 +14,7 @@ import vehicle.displaymanager as dm
 import vehicle.sensormanager as sm
 from vehicle.hud import HUD
 from vehicle.world import World
+import cv2
 
 # Planning Constants
 NUM_PATHS = 7
@@ -46,6 +47,55 @@ INTERP_DISTANCE_RES       = 0.01 # distance between interpolated points
 
 DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
                                        # simulation ends
+
+
+pedestrian_cascade = cv2.CascadeClassifier('haarcascade_fullbody.xml')
+
+def is_too_close(location, existing_locations, min_distance):
+    for existing_location in existing_locations:
+        distance = math.sqrt((location.x - existing_location.x)**2 + (location.y - existing_location.y)**2)
+        if distance < min_distance:
+            return True
+    return False
+
+def spawn_walkers(world, num_walkers=10, min_distance=2.0):
+    walker_blueprint_library = world.get_blueprint_library().filter("walker.*")
+    spawn_points = world.get_map().get_spawn_points()
+    random.shuffle(spawn_points)
+
+    spawned_walkers = []
+    spawned_locations = []
+
+    for i in range(num_walkers):
+        for spawn_point in spawn_points:
+            spawn_transform = carla.Transform(spawn_point.location, spawn_point.rotation)
+            walker = world.try_spawn_actor(walker_blueprint_library[i % len(walker_blueprint_library)], spawn_transform)
+
+            if walker is not None:
+                location = spawn_point.location
+                if not is_too_close(location, spawned_locations, min_distance):
+                    spawned_walkers.append(walker)
+                    spawned_locations.append(location)
+                    break  # Break the inner loop and move to the next walker
+
+    return spawned_walkers
+
+def process_image(image, vehicle):
+    # Convert the image from CARLA to an array format that OpenCV can use
+    array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+    array = np.reshape(array, (image.height, image.width, 4))  # RGBA format
+    frame = array[:, :, :3]  # Use only RGB
+
+    # Detect pedestrians
+    pedestrians = pedestrian_cascade.detectMultiScale(frame, 1.1, 2)
+
+    # If pedestrians are detected, stop the car
+    if len(pedestrians) > 0:
+        print("Pedestrian detected! Stopping the car.")
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))
+    else:
+        print("No pedestrian detected.")
+
 
 def prepare_control_command(throttle, steer, brake, 
                          hand_brake=False, reverse=False, manual_gear_shift=False):
@@ -93,6 +143,8 @@ def main():
     sim_world.world.unload_map_layer(carla.MapLayer.ParkedVehicles)
     sim_world.world.unload_map_layer(carla.MapLayer.Foliage)
 
+    spawned_walkers = spawn_walkers(temp_world, num_walkers=30, min_distance=2.0)
+
     settings = sim_world.world.get_settings()
     settings.synchronous_mode = True
     settings.fixed_delta_seconds = 0.05
@@ -119,6 +171,21 @@ def main():
     vehicle = sim_world.world.spawn_actor(bp, spawn_point)
     sim_world.simple_restart(vehicle)
     # vehicle.set_simulate_physics(False)
+
+
+    # Set up the camera sensor
+    camera_bp = blueprint_library.find('sensor.camera.rgb')
+    camera_bp.set_attribute('image_size_x', '400')
+    camera_bp.set_attribute('image_size_y', '300')
+    camera_bp.set_attribute('fov', '120')
+
+    # Set the relative location and orientation of the camera
+    camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+    camera = sim_world.world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+
+    camera.listen(lambda image: process_image(image, vehicle))
+
+
 
     # destination_point = random.choice(sim_world.map.get_spawn_points())
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
@@ -313,6 +380,24 @@ def main():
         trajectory_fig.add_graph("traffic_light"+str(light_id), window_size=1,
                                 marker="H", markertext="Traffic light", marker_text_offset=1,
                                 x0=None, y0=None, color="g")
+
+    # Get a list of pedestrian actors located within the route area
+    all_pedestrians = sim_world.world.get_actors().filter("walker.pedestrian.*")
+    pedestrians_list = []
+
+    for pedestrian in all_pedestrians:
+        pedestrian_location = pedestrian.get_location()
+        if (min_x < pedestrian_location.x < max_x) and (min_y < pedestrian_location.y < max_y):
+            pedestrians_list.append(pedestrian)
+
+    # Add pedestrians to the plot
+    for pedestrian in pedestrians_list:
+        pedestrian_location = pedestrian.get_location()
+        x0 = [pedestrian_location.x]
+        y0 = [pedestrian_location.y]
+        trajectory_fig.add_graph("pedestrian" + str(pedestrian.id), window_size=1,
+                                marker="x", markertext="Pedestrian", marker_text_offset=1,
+                                x0=x0, y0=y0, color="b")
 
     
     ################################
@@ -611,6 +696,12 @@ def main():
             break
 
     time.sleep(3)
+
+    for walker in spawned_walkers:
+        walker.destroy()
+    camera.destroy()
+    if display_manager:
+        display_manager.destroy()
     
     if display_manager:
         display_manager.destroy()
