@@ -2,7 +2,7 @@ import carla
 import math
 import collections
 import weakref
-import scout.vehicle.helper_display as hd
+import helpers.helper_display as hd
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
