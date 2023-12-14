@@ -79,8 +79,8 @@ def main():
     client = carla.Client('localhost', 2000)
     client.set_timeout(60)
 
-    # traffic_manager = client.get_trafficmanager()
-    # traffic_manager.set_synchronous_mode(True)
+    traffic_manager = client.get_trafficmanager()
+    traffic_manager.set_synchronous_mode(True)
 
     # HUD and world objects
     hud = HUD(400, 400)
@@ -124,7 +124,7 @@ def main():
     # destination_point = carla.Transform(carla.Location(x=-45.149696, y=55.715389, z=0.600000), carla.Rotation(yaw=-90.161217))
     destination_point=s_points[10]
 
-    sampling_resolution = 2.0
+    sampling_resolution = 1.0
     global_route_plannner = GlobalRoutePlanner(sim_world.map, sampling_resolution)
 
     start_waypoint = sim_world.map.get_waypoint(spawn_point.location)
