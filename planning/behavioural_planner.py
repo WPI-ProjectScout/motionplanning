@@ -19,7 +19,7 @@ STAY_STOPPED = 2
 DECELERATE_TO_LIGHT = 3
 STAY_STOPPED_UNTIL_GREEN = 4
 # Stop speed threshold
-STOP_THRESHOLD = 0.5
+STOP_THRESHOLD = 5
 # Number of cycles before moving from stop sign.
 STOP_COUNTS = 10
 
@@ -39,6 +39,7 @@ class BehaviouralPlanner:
         self._stop_count                    = 0
         self._map                           = map
         self._default_speed                 = default_speed
+        self._prev_lookahead                = 0
 
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
@@ -106,10 +107,10 @@ class BehaviouralPlanner:
             # ------------------------------------------------------------------
 
             # 1 store the previously set lookahead distance
-            prev_lookahead = self._lookahead
+            self._prev_lookahead = self._lookahead
             # 2 update the lookahead distance to use the traffic light lookahead distance
             # self._lookahead = self._traffic_light_lookahead
-            self.set_lookahead(8 + 2 * ego_state[3])
+            self.set_lookahead(6 + 1.5 * ego_state[3])
 
             # 3 Find the goal index based on the traffic light look ahead distance
             goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
@@ -126,7 +127,7 @@ class BehaviouralPlanner:
             # Check the index set between closest_index and goal_index
             # for traffic lights, and compute the goal state accordingly.
             # ------------------------------------------------------------------
-            goal_index_traffic_light, traffic_light_found = self.check_for_traffic_lights(waypoints, closest_index, goal_index)
+            goal_index_traffic_light, traffic_light_found = self.check_for_traffic_lights(waypoints, closest_index, goal_index,ego_state)
             # ------------------------------------------------------------------
 
             # If stop sign found, set the goal to zero speed, then transition to 
@@ -145,7 +146,7 @@ class BehaviouralPlanner:
             elif not stop_sign_found and traffic_light_found:
                 self._goal_index = goal_index_traffic_light
                 self._goal_state = waypoints[goal_index_traffic_light]
-                self._goal_state[2] = 0
+                self._goal_state[2] = STOP_THRESHOLD-2
                 self._state = DECELERATE_TO_LIGHT
             # ------------------------------------------------------------------
 
@@ -172,7 +173,7 @@ class BehaviouralPlanner:
                 #### Then look again for the goal index considering a smaller lookahead
 
                 # 6 Recover the originally set lookahead
-                self._lookahead = prev_lookahead
+                self._lookahead = self._prev_lookahead
 
                 # 7 find the goal index that is wihtin the original (small) lookahead
                 # distance
@@ -196,11 +197,14 @@ class BehaviouralPlanner:
             # ------------------------------------------------------------------
 
             # Check if the previous light is still on red
-            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
+            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0,ego_state)
 
             # If fully stopped and still onf read, proceed to wait only
             if closed_loop_speed <= STOP_THRESHOLD and traffic_light_found:
                 self._state = STAY_STOPPED_UNTIL_GREEN
+                self._goal_state[2] = 0
+            elif traffic_light_found:
+                self._goal_state[2] = STOP_THRESHOLD-3
             elif not traffic_light_found:
                 self._state = FOLLOW_LANE
             # ------------------------------------------------------------------
@@ -263,7 +267,7 @@ class BehaviouralPlanner:
         elif self._state == STAY_STOPPED_UNTIL_GREEN:
 
             # Check if last traffic light is green now
-            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0)
+            _, traffic_light_found = self.check_for_traffic_lights(waypoints, 0, 0,ego_state)
             if not traffic_light_found:
 
                 # --------------------------------------------------------------
@@ -349,14 +353,60 @@ class BehaviouralPlanner:
     # Checks the given segment of the waypoint list to see if it
     # intersects with a traffic light. If any index does, return the
     # new goal state accordingly.
-    def check_for_traffic_lights(self, waypoints, closest_index, goal_index):
+    def check_for_traffic_lights(self, waypoints, closest_index, goal_index,ego_state):
         if self._previous_traffic_light:
-            if self._previous_traffic_light.state == carla.TrafficLightState.Green:
+            trigger_wp = self._lights_map[self._previous_traffic_light.id]
+            target_vector = np.array([
+                    trigger_wp.transform.location.x - ego_state[0],
+                    trigger_wp.transform.location.y - ego_state[1]
+                ])
+            heading = np.arctan2(target_vector[1], target_vector[0])
+            
+            
+            
+            norm_target = np.linalg.norm(target_vector)
+            
+
+            ego_vehicle_location = carla.Location(x=ego_state[0], y=ego_state[1])
+            ego_vehicle_waypoint = self._map.get_waypoint(ego_vehicle_location)
+            ego_vehicle_waypoint.transform.rotation.yaw = ego_state[2]
+            ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
+            wp_dir = trigger_wp.transform.get_forward_vector()
+            dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
+            
+            distance = trigger_wp.transform.location.distance(ego_vehicle_location)
+            forward_vector = np.array([ve_dir.x, ve_dir.y])
+            angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
+            min_angle=0
+            max_angle = 180
+            is_in_front = min_angle <= angle <= max_angle
+           
+            print("norm_target:",norm_target)
+            print("distance",distance)
+            print("dot_ve_wp:",dot_ve_wp)
+            print("is_in_front:",is_in_front)
+
+            if self._previous_traffic_light.state != carla.TrafficLightState.Red or \
+                dot_ve_wp<1:
+                print("Case when yellow or green light is near us, so removing previous traffic light")
                 self._previous_traffic_light = None
                 return (goal_index, False)
-            else:
+            elif norm_target>=11:
+                # For case when detected light is too far away
+                print("Case when detected light is too far away")
+                self._previous_traffic_light = None
+                return (goal_index, False)
+            elif self._previous_traffic_light.state == carla.TrafficLightState.Red and dot_ve_wp>=1:
+                print("Case when detected light is red and in front of us")
+                traffic_light_wp = self._lights_map[self._previous_traffic_light.id]
+                traffic_light_state = [traffic_light_wp.transform.location.x, traffic_light_wp.transform.location.y, 0, 0]
+                closest_dist, closest_index = get_closest_index(waypoints, traffic_light_state)
                 return (goal_index, True)
-
+            else:
+                print("Case when else")
+                self._previous_traffic_light = None
+                return (goal_index, False)
+        
         # Start from the goal index backwards to guarantee we get close to the traffic light
         for i in range(closest_index, goal_index):
 
@@ -383,60 +433,71 @@ class BehaviouralPlanner:
                     trigger_wp = self._map.get_waypoint(trigger_location)
                     self._lights_map[traffic_light.id] = trigger_wp
 
-                # Ignore if trafic light is green
-                if traffic_light.state == carla.TrafficLightState.Green:
+                # Ignore if traffic light is green or yellow
+                if traffic_light.state != carla.TrafficLightState.Red:
+                    # print("Ignored Green/Yellow Traffic Light")
                     continue
 
                 # Ignore if light is beyond look ahead distance
                 if trigger_wp.transform.location.distance(ego_vehicle_location) > self._traffic_light_lookahead:
+                    # print("Ignored Far away Traffic Light")
                     continue
 
-                # print("Close to a traffic light, checking angles now. ID: ", traffic_light.id)
+                print("Close to a traffic light, checking angles now (where it is facing). ID: ", traffic_light.id)
 
                 ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
                 wp_dir = trigger_wp.transform.get_forward_vector()
                 dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
 
                 # Ignore traffic light if its not facing our direction
-                if dot_ve_wp < 0:
+                if dot_ve_wp < 1:
+                    print("Ignore traffic light if its not facing our direction: ", dot_ve_wp)
                     continue
 
-                # print("Dot product passed. ID: ", traffic_light.id)
+                print("Dot product passed. ID: {} dot_ve_wp: {}".format(traffic_light.id,dot_ve_wp))
 
                 target_vector = np.array([
                     trigger_wp.transform.location.x - ego_vehicle_location.x,
                     trigger_wp.transform.location.y - ego_vehicle_location.y
                 ])
                 norm_target = np.linalg.norm(target_vector)
-
+                # print("norm_target2",norm_target)
                 is_within_range = False
-                if norm_target > self._traffic_light_lookahead:
-                    # print("norm bigger than look ahead. ID: ", traffic_light.id)
+                forward_vector = np.array([ve_dir.x, ve_dir.y])
+                direction=np.dot(forward_vector, target_vector)
+                if norm_target > self._traffic_light_lookahead or direction<0:
+                    print("norm bigger or smaller than look ahead. ID: ", traffic_light.id, "direction:",direction)
                     is_within_range = False
                 # If the vector is too short, we can simply stop here
-                elif norm_target < 0.001:
-                    is_within_range = True
+                # elif norm_target < 15:
+                #     is_within_range = True
+                #     print("norm < 15", traffic_light.id)
                 else:
+                    print("norm less than look ahead. ID: ", traffic_light.id)
                     min_angle = 0
-                    max_angle = 90
+                    max_angle = 180
 
-                    forward_vector = np.array([ve_dir.x, ve_dir.y])
+                    
                     angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
-
-                    is_within_range = min_angle < angle < max_angle
+                    print("PRE-is_within_range: {}, angle: {}".format(is_within_range,angle))
+                    is_within_range = min_angle <= angle <= max_angle
+                    print("POST-is_within_range: {}, angle: {}".format(is_within_range,angle))
                     # if not is_within_range:
                         # print("angle did not match. ID: ", traffic_light.id)
 
                 if is_within_range:
-                    # print("Detected ID: ", traffic_light.id)
+                    print("Detected ID: ", traffic_light.id)
                     self._previous_traffic_light = traffic_light
                     break
+                else:
+                    if self._previous_traffic_light is not None and traffic_light.id==self._previous_traffic_light.id:
+                        print("is_within_range==False for detected ID: ", traffic_light.id)
                     # print("light location: ", trigger_wp.transform.location, " goal waypoint: ", waypoints[i])
                     
                     # return i, True
             
             
-            # If we have assinged a trafiic light it means we found which one is afecting us
+            # If we have assinged a traffic light it means we found which one is affecting us
             if self._previous_traffic_light:
                 break
         
@@ -445,8 +506,10 @@ class BehaviouralPlanner:
             traffic_light_wp = self._lights_map[self._previous_traffic_light.id]
             traffic_light_state = [traffic_light_wp.transform.location.x, traffic_light_wp.transform.location.y, 0, 0]
             closest_dist, closest_index = get_closest_index(waypoints, traffic_light_state)
-
-            print("light location: ", traffic_light_wp.transform.location, " goal waypoint: ", waypoints[closest_index], "with index: ", closest_index, " and dist: ", closest_dist)
+            print("Ego x:",ego_state[0],"Ego y:",ego_state[1])
+            print("light location: ", traffic_light_wp.transform.location, " goal waypoint: ", 
+                  waypoints[closest_index], "with index: ", closest_index, " and dist: ", closest_dist)
+            
             return closest_index, True
 
         # By default return the original goal index and a False flag

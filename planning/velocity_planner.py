@@ -34,7 +34,10 @@ class VelocityPlanner:
             distance_step = np.linalg.norm(np.subtract(self._prev_trajectory[i+1][0:2], 
                                                        self._prev_trajectory[i][0:2]))
             velocity = self._prev_trajectory[i][2]
-            time_delta = distance_step / velocity
+            if velocity!=0:
+                time_delta = distance_step / velocity
+            else:
+                time_delta=0
            
             # If time_delta exceeds the remaining time in our simulation timestep, 
             # interpolate between the velocity of the current step and the velocity
